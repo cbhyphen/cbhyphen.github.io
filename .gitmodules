@@ -1,0 +1,18 @@
+[submodule "themes/nostyleplease"]
+	path = themes/nostyleplease
+	url = https://github.com/Masellum/hugo-theme-nostyleplease
+[submodule "themes/ananke"]
+	path = themes/ananke
+	url = https://github.com/yihui/hugo-xmin
+[submodule "themes/xmin"]
+	path = themes/xmin
+	url = https://github.com/yihui/hugo-xmin
+[submodule "themes/texify"]
+	path = themes/texify
+	url = https://github.com/queensferryme/hugo-theme-texify
+[submodule "themes/console"]
+	path = themes/console
+	url = https://github.com/mrmierzejewski/hugo-theme-console
+[submodule "themes/hugotex"]
+	path = themes/hugotex
+	url = https://github.com/kaisugi/HugoTeX
