@@ -3,4 +3,4 @@ languageCode = 'en-us'
 title = 'brain dumpsite'
 
 theme = 'nostyleplease'
-params.theme_config.appearance = "dark"
+params.theme_config.appearance = "auto"
