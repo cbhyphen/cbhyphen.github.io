@@ -5,38 +5,47 @@ mathjax: true
 draft: true
 ---
 
+# Naive Bayes Classifier
 
-initial brain dump...
+## maths and stuff
 
-I love digging into the math and statistics behind machine learning algorithms.  Understanding how something works is not only empowering but that knowledge can help inform better decisions.  With that goal in mind, the following is a dive into the naive Bayes classifier.
+for classification we want to map inputs to a discrete output
 
-For the task of classification, we want to find a function that maps inputs to a discrete output
+$$ f : X \rightarrow Y $$
 
-$$f(x) \rightarrow y$$
+the probability of an output can be represented conditionally as
 
-using conditional probability that can represented as the probability of the output class given the input
+$$ P ( Y | X ) $$
 
-$$P(y | x)$$
+and among various output classes, the most likely class is
 
-for multiclass classification we want the most likely class given the data
+$$ \arg\max_ y P ( Y | X )  $$
 
-$$f(x) = \arg\max_y P(y | x)  $$
+using Bayes rule this transforms to
 
-using Bayes rule
+$$P ( Y | X ) =  { P ( Y \cap X )  \over P ( X ) } = { P ( X | Y )  \cdot P ( Y ) \over P ( X ) }$$
 
-$$P(y|x) =  {P( y \cap x)  \over P(x)} = {P(x|y)  \cdot P(y) \over P(x)}$$
+because the conditional probability for each class $P(Y_{c}|X)$ is proportional to the marginal $P( X )$, the marginal can be factored out
 
-which gives
+$$ P ( Y | X ) \propto { P ( X | Y )  \cdot P ( Y ) } $$
 
-$$f(x) = \arg\max_y {P(x|y)  \cdot P(y) \over P(x)}  $$
+which gives the map
 
-and the marginal probability is constant
+$$ f ( X ) = \arg\max_y { P ( X | Y )  \cdot P ( Y ) }  $$
 
-$$f(x) = \arg\max_y {P(x|y)  \cdot P(y)}  $$
+where $P ( X | Y )$ are the class likelihoods (i.e. probability of some data given the class distribution) and $P ( Y )$ are class priors (i.e. empirical class distributions).
 
-where $P(x|y)$ are class likelihoods and $P(y)$ are class priors.
+Class priors are just the normalized prevalence of each class in the training set (maximum likelihood estimate).
 
-The class priors are just the empirical distribution of  $y$ across all classes.  The class likelihoods are slightly more complex and involve using the probability density function of the normal (or multivariate normal) distribution which is another naive assumption about data distribution.
+**MLE / mean equation**
+
+Class likelihoods require knowing the probability distribution for each class.  Assuming all distributions are Gaussian, we can use the probability density function to find the probability of some data belonging to a class.
+
+For a single / univariate feature 
+
+**show univariate PDF**
+
+For multiple / multivariate features
 
 **show univariate and multivariate normal PDFs**
 
