@@ -1,5 +1,5 @@
 ---
-title: "Cbhyphen.github.io"
+title: "cbhyphen.github.io"
 listing:
   contents: posts
   sort: "date desc"
