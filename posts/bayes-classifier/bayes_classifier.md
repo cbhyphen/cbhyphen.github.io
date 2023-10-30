@@ -1,10 +1,8 @@
 ---
 title: "Bayes Classifier"
-date: 2018-01-01T00:00:01-08:00
-mathjax: true
-draft: false
+author: "me"
+date: 2018-01-01
 ---
-
 
 Even though I've studied (and revisited, and revisited..) Bayesian statistics several times over the years, I always felt that, over time, my understanding would lose it's sharpness.  In my opinion, the Bayesian paradigm isn't very intuitive.  So I created this post as future reference to myself, but also as a way to dive deeper into things like the naive assumption, maximum a posterior vs maximum likelihood, and decision boundaries.
 
@@ -133,7 +131,7 @@ sns.displot(df, kind='kde', x='x', hue='y',
 
 
     
-![png](/output_4_1.png)
+![png](output_4_1.png)
     
 
 
