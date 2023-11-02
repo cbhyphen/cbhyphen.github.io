@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>cbhyphen.github.io - maximum a posteriori</title>
+<title>cbhyphen.github.io - bayesian classifiers</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -137,7 +137,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">maximum a posteriori</h1>
+      <h1 class="title">bayesian classifiers</h1>
                       </div>
   </div>
     
@@ -161,6 +161,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 
 <p>Even though I’ve studied (and revisited, and revisited..) Bayesian statistics several times over the years, I always felt that, over time, my understanding would lose it’s sharpness. In my opinion, the Bayesian paradigm isn’t very intuitive. So I created this post as future reference to myself, but also as a way to dive deeper into things like the naive assumption, maximum a posterior vs maximum likelihood, and decision boundaries.</p>
+<section id="maximum-a-posteriori" class="level2">
+<h2 class="anchored" data-anchor-id="maximum-a-posteriori">maximum a posteriori</h2>
 <p>Let’s assume there is a random variable <span class="math inline">\(X\)</span> that follows a Gaussian distribution</p>
 <p><span class="math display">\[
 X \sim N(\mu, \sigma)
@@ -217,6 +219,7 @@ p(y) = \frac{1}{n}\sum_{i}^{n} \mathbb{1}(y_i = y)
 \]</span></p>
 <p>but this ignores the prior distribution if we have that information.</p>
 <p>With some basic theory out of the way, let’s build a classifer.</p>
+</section>
 <section id="univariate-classifier" class="level2">
 <h2 class="anchored" data-anchor-id="univariate-classifier">univariate classifier</h2>
 <p>Let’s simulate univariate Gaussian data for the two classes. For simplicity, the data will have different means but the same variance.</p>
