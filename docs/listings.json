@@ -2,10 +2,9 @@
   {
     "listing": "/index.html",
     "items": [
-      "/posts/bayes-classifier/bayes_classifier.html",
-      "/posts/pytorch-quantization/pytorch_quantization.html",
       "/posts/post-with-code/index.html",
       "/posts/welcome/index.html",
+      "/posts/bayes-classifier/index.html",
       "/posts/pytorch-quantization/index.html"
     ]
   }
