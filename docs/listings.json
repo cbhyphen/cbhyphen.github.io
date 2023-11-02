@@ -4,8 +4,8 @@
     "items": [
       "/posts/post-with-code/index.html",
       "/posts/welcome/index.html",
-      "/posts/bayes-classifier/index.html",
-      "/posts/pytorch-quantization/index.html"
+      "/posts/bayes-classifier/bayes_classifier.html",
+      "/posts/pytorch-quantization/pytorch_quantization.html"
     ]
   }
 ]
