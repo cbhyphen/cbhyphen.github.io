@@ -2,7 +2,7 @@
   {
     "listing": "/index.html",
     "items": [
-      "/posts/rcnn-quantization/rcnn_quantization.html",
+      "/posts/pytorch-eager-qat/pytorch_eager_qat.html",
       "/posts/bayes-classifier/bayes_classifier.html"
     ]
   }
