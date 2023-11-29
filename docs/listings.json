@@ -3,7 +3,7 @@
     "listing": "/index.html",
     "items": [
       "/posts/pytorch-eager-qat/pytorch_eager_qat.html",
-      "/posts/bayes-classifier/bayes_classifier.html"
+      "/posts/gaussian-bayes-classifier/gaussian_bayes_classifier.html"
     ]
   }
 ]
