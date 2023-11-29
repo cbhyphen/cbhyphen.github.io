@@ -6,10 +6,10 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="author" content="me">
+<meta name="author" content="chris">
 <meta name="dcterms.date" content="2023-11-15">
 
-<title>cbhyphen.github.io - Eager Mode Quantization in PyTorch for Object Detection</title>
+<title>cbhyphen.github.io - Eager Mode Quantization in PyTorch: Quantizing the Backbone of an Object Detection Model</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -137,7 +137,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">Eager Mode Quantization in PyTorch for Object Detection</h1>
+      <h1 class="title">Eager Mode Quantization in PyTorch: Quantizing the Backbone of an Object Detection Model</h1>
                       </div>
   </div>
     
@@ -147,7 +147,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <div>
       <div class="quarto-title-meta-heading">Author</div>
       <div class="quarto-title-meta-contents">
-               <p>me </p>
+               <p>chris </p>
             </div>
     </div>
       
@@ -161,7 +161,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <div>
       <div class="quarto-title-meta-heading">Modified</div>
       <div class="quarto-title-meta-contents">
-        <p class="date-modified">November 22, 2023</p>
+        <p class="date-modified">November 29, 2023</p>
       </div>
     </div>
       
@@ -178,14 +178,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 
 
-<p>At the time of writing this quantization in PyTorch was relatively new to me, and I wanted a deep dive on the topic for something non-trivial. After reading about different <a href="https://pytorch.org/docs/stable/quantization.html#quantization-api-summary">quantization modes</a> (eager vs graph fx) as well as quantization methods (dynamic, static post-training, static aware-training), I decide to try eager mode quantization aware training (QAT).</p>
+<p>Model quantization is a powerful tool to reduce memory and compute by using lower precision data types. Although I’m familiar with the concept and a few high-level APIs, I hadn’t yet implemented it in PyTorch and wanted a deep dive for something non-trivial. After reading about PyTorch’s different <a href="https://pytorch.org/docs/stable/quantization.html#quantization-api-summary">quantization modes</a> (eager vs graph fx) and methods (dynamic, post-training static, static aware-training), I decide to start with eager mode quantization aware training (QAT). At the time of writing this, eager mode quantization was a more mature feature and this seemed like a natural place to start.</p>
 <p>In my research for a project, I came across <a href="https://github.com/pytorch/pytorch/issues/31316">multiple discussions</a> online requesting either <a href="https://discuss.pytorch.org/t/slow-inference-time-on-quantized-faster-rcnn-model/115182">help</a> or a <a href="https://discuss.pytorch.org/t/tutorial-on-quantizing-object-detection-model/102604">tutorial</a> for quantizing the backbone of an object detection model (faster R-CNN in this case). As far as I could tell there was nothing available so this was the perfect excuse.</p>
-<p>So in this post, I will go through that process of quantization-aware training and include some analysis on the benefits of quantization.</p>
+<p>So in this post, I will go through that process of QAT while quantizing the backbone of <a href="https://pytorch.org/vision/main/models/faster_rcnn.html">faster R-CNN</a> and subsequently include analysis on the benefits.</p>
 <section id="resnet-and-feature-pyramid-network" class="level3">
 <h3 class="anchored" data-anchor-id="resnet-and-feature-pyramid-network">ResNet and Feature Pyramid Network</h3>
 <p>This assumes some familiarity with the R-CNN architecture, but to refresh, the feature extraction backbone consists of two components; the resnet and the feature pyramid network. The FPN combines output from consecutive layers of the resnet (via upsampling) which allows it to extract semantic information at higher resolutions. These two components of the backbone can be quantized while the rest of the network still uses floating point precision.</p>
 <p>From an implementation standpoint, there is a utility class <a href="https://github.com/pytorch/vision/blob/main/torchvision/models/_utils.py#L13">IntermediateLayerGetter</a> for extracting each layer output (no fully connected) from the resnet. And another convenience class for the <a href="https://github.com/pytorch/vision/blob/main/torchvision/ops/feature_pyramid_network.py#L36">FPN</a> which takes the layer ouputs as input. Combining these two is <a href="https://github.com/pytorch/vision/blob/main/torchvision/models/detection/backbone_utils.py#L13">BackboneWithFPN</a> which is mostly just a thin wrapper around both.</p>
-<p>As we are doing eager mode static quantization, we’ll need to <a href="https://pytorch.org/docs/stable/quantization.html#model-preparation-for-eager-mode-static-quantization">prepare the model</a> before we can train it and subsequently quantize it.</p>
+<p>As we are doing eager mode static quantization, we’ll need to <a href="https://pytorch.org/docs/stable/quantization.html#model-preparation-for-eager-mode-static-quantization">prepare the model</a> before we can train and subsequently quantize it.</p>
 </section>
 <section id="model-preparation" class="level3">
 <h3 class="anchored" data-anchor-id="model-preparation">Model Preparation</h3>
@@ -273,7 +273,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>resnet <span class="op">=</span> resnet_101()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>The next step would be to pass the resnet to the <code>IntermediateLayerGetter</code>. In addition to the resnet we created, this class also requires a dictionary of the layer names (to know what to extract). It returns an <code>OrderedDict</code> of those layer outputs. Here’s an example using a toy image.</p>
+<p>The next step is to pass the resnet to the <code>IntermediateLayerGetter</code>. In addition to the resnet we created, this class also requires a dictionary of the layer names (to know what to extract). It returns an <code>OrderedDict</code> of those layer outputs. Here’s an example using a toy image.</p>
 <div class="cell" data-outputid="32d9a6a0-a267-4fe1-e191-a1c51b5c00bc">
 <div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torchvision.models._utils <span class="im">import</span> IntermediateLayerGetter</span>
@@ -293,7 +293,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
  ('3', torch.Size([1, 2048, 7, 7]))]</code></pre>
 </div>
 </div>
-<p>As mentioned, the output of the resnet layers will be fed to the feature pyramid network. Before we can do this, the FPN also needs to be modified as it uses the addition operator <code>+</code>. There is also a functional <code>F.interpolate</code> that doesn’t need to be replaced, however it does need to be referenced differently as importing <code>torch.nn.functional as F</code> causes a namespace issue later with <code>torchvision</code> and QAT will fail.</p>
+<p>Again, the output of the resnet layers will be fed to the feature pyramid network. Before we can do that, the FPN also needs to be modified as it uses a <code>+</code> addition operator. Note that there is also a functional <code>F.interpolate</code> but that doesn’t actually need to be replaced. However, it does need to be referenced differently as importing <code>torch.nn.functional as F</code> causes a namespace issue later with <code>torchvision</code>.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> collections <span class="im">import</span> OrderedDict</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> typing <span class="im">import</span> List, Dict</span>
@@ -496,8 +496,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <pre><code>[256, 512, 1024, 2048]</code></pre>
 </div>
 </div>
-<p>Next step is to create a modified <code>BackboneWithFPN</code> that uses our <code>FeaturePyramidNetworkQuantizeable</code>. Here we’ll also make sure that the inputs are quantized and the outputs subsequently dequantized so that they can be fed to the R-CNN.</p>
-<p>One important note is that regular <code>BatchNorm2d</code> is the default and used here instead of <code>FrozenBatchNorm2d</code>. Frozen batch norm is the recommended layer because batches are generally <a href="https://github.com/facebookresearch/maskrcnn-benchmark/issues/267">too small for good estimates of mean and variance</a> statistics but it isn’t quantizeable. So using regular batch norm could be unstable and less performant if those layers aren’t frozen before training.</p>
+<p>Next step is to create a modified <code>BackboneWithFPN</code> that uses our <code>FeaturePyramidNetworkQuantizeable</code>. Here we’ll also make sure that the inputs are quantized and the outputs subsequently dequantized so that they can be fed to the rest of the R-CNN.</p>
+<p>One important note is that regular <code>BatchNorm2d</code> is the default normalization layer which is used instead of <code>FrozenBatchNorm2d</code>. Frozen batch norm is the recommended layer because batches are generally <a href="https://github.com/facebookresearch/maskrcnn-benchmark/issues/267">too small for good estimates of mean and variance</a> statistics but that module isn’t quantizeable. So using regular batch norm could be unstable and less performant if those layers aren’t frozen before training.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torchvision.ops.feature_pyramid_network <span class="im">import</span> LastLevelMaxPool</span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torchvision.models._utils <span class="im">import</span> IntermediateLayerGetter</span>
@@ -573,7 +573,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>)</span>
 <span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a><span class="co"># bbfpn</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>Now the backbone with FPN can be plugged into the <a href="https://github.com/pytorch/vision/blob/main/torchvision/models/detection/faster_rcnn.py#L43">FasterRCNN</a>. The number of classes is set to 2 for either object or background which is specific to the dataset used here.</p>
+<p>The last step is to plug in the modified backbone with FPN when creating the <a href="https://github.com/pytorch/vision/blob/main/torchvision/models/detection/faster_rcnn.py#L43">Faster R-CNN</a>. Note that the number of classes is set to 2 (object or background) which is specific to the dataset used.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torchvision.models.detection.faster_rcnn <span class="im">import</span> FasterRCNN</span>
 <span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a></span>
@@ -623,7 +623,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>                <span class="cf">if</span> <span class="st">"downsample"</span> <span class="kw">in</span> k3:  <span class="co"># fuse downsample</span></span>
 <span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>                    fuse_modules(m3, [[<span class="st">"0"</span>, <span class="st">"1"</span>]], inplace<span class="op">=</span><span class="va">True</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>Before training the quantization config needs to be set (on the backbone only). And again, because the batches are so small, <a href="https://pytorch.org/docs/stable/generated/torch.ao.nn.intrinsic.qat.freeze_bn_stats.html">batch norm gets frozen</a> (see <a href="https://pytorch.org/tutorials/advanced/static_quantization_tutorial.html#quantization-aware-training">this pytorch tutorial</a> for another example). Last, I’ll freeze the stem and the first layer in the backbone since the pretrained imagenet weights were loaded. After preparation you should be able to see the observers in the network.</p>
+<p>Before training, the quantization config needs to be set on the backbone only. And again, because the batches are so small, <a href="https://pytorch.org/docs/stable/generated/torch.ao.nn.intrinsic.qat.freeze_bn_stats.html">batch norm gets frozen</a> (see <a href="https://pytorch.org/tutorials/advanced/static_quantization_tutorial.html#quantization-aware-training">this pytorch tutorial</a> for another example). Last, I’ll freeze the stem and the first layer in the backbone since the pretrained imagenet weights were loaded. After preparation you should be able to see the observers in the network.</p>
 <pre><code>FasterRCNN(
   (transform): GeneralizedRCNNTransform(
       Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
@@ -1081,7 +1081,7 @@ IoU metric: bbox
  Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.646</code></pre>
 </div>
 </div>
-<p>Now to convert and save the model. Make sure to put the model on CPU before conversion or you will get an error. After conversion you should see quantized modules like <code>QuantizedConvReLU2d</code>.</p>
+<p>Now to convert and save the model. Make sure to put the model on CPU before conversion to avoid any errors. After conversion you should see quantized modules like <code>QuantizedConvReLU2d</code>.</p>
 <pre><code>FasterRCNN(
   (transform): GeneralizedRCNNTransform(
       Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
@@ -1170,7 +1170,7 @@ size of float model: 242 MB</code></pre>
 float model avg time (cpu): 2.20</code></pre>
 </div>
 </div>
-<p>I believe a fully quantized model would be even smaller and faster by comparison. In this case, while we did quantize the backbone for the RCNN, it only accounted for roughly 75% of the model parameters. So a significant number of float operations still occur after the quantized backbone.</p>
+<p>I believe a fully quantized model would be even smaller and faster by comparison. In this case, while we did quantize the backbone for the R-CNN, it only accounted for roughly 75% of model parameters. So a significant number of float operations still occur after the quantized backbone.</p>
 <div class="cell" data-outputid="ff10f6c1-1872-483a-de80-6db4d2bc7865">
 <div class="sourceCode cell-code" id="cb28"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>num_model_params <span class="op">=</span> <span class="bu">sum</span>(p.numel() <span class="cf">for</span> p <span class="kw">in</span> rcnn.parameters() <span class="cf">if</span> p.requires_grad)</span>
 <span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>num_backbone_params <span class="op">=</span> <span class="bu">sum</span>(p.numel() <span class="cf">for</span> p <span class="kw">in</span> rcnn.backbone.parameters() <span class="cf">if</span> p.requires_grad)</span>
@@ -1235,7 +1235,7 @@ Self CPU time total: 2.086s
 </code></pre>
 </div>
 </div>
-<p>The following loads the saved quantized model. It’s important that the same process of <a href="https://discuss.pytorch.org/t/how-to-load-quantized-model-for-inference/140283">fusing, preparing, and converting</a> be done before loading weights since quantization significantly alters the network. For sake of completeness, we can look at a prediction from the partially quantized RCNN.</p>
+<p>The following loads the saved quantized model. It’s important that the same process of <a href="https://discuss.pytorch.org/t/how-to-load-quantized-model-for-inference/140283">fusing, preparing, and converting</a> be done before loading weights since quantization significantly alters the network. For sake of completeness, we can look at a prediction from the partially quantized R-CNN.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb32"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="op">%%</span>capture</span>
 <span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a></span>
@@ -1304,7 +1304,7 @@ Self CPU time total: 2.086s
 <p><img src="pytorch_eager_qat_files/figure-html/cell-23-output-2.png" class="img-fluid"></p>
 </div>
 </div>
-<p>It’s worth mentioning that I ran into all sorts of issues on my early attempts. This post is polished and makes the whole process look linear but it wasn’t. There were many attempts, breaks to research bugs, figuring out how to do something, reverting to simpler models, etc. Things failed and failed until finally they didn’t.</p>
+<p>Although this post looks polished and the process linear, early attemps were anything but. I ran into all sorts of issues during the model preparation phase, which appears to be a major downside of eager mode quantization. In another post, I plan to use FX graph mode quantization to compare the two methods.</p>
 
 
 </section>
