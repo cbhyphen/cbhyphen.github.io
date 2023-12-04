@@ -320,7 +320,7 @@ AttributeError: expected a dictionary of (method_name, input) pairs</code></pre>
           (bn): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
           (weight_fake_quant): PerChannelMinMaxObserver(min_val=tensor([]), max_val=tensor([]))
           ...</code></pre>
-<p>note that preparation now <a href="https://colab.research.google.com/drive/1PL9JtZi2iEImGEGCuZE6lax-KqaFdWgo#scrollTo=2K28zuB1f-QC&amp;line=27&amp;uniqifier=1">requires an example input to determine the output types</a>. as before, I’ll freeze the first layer as well as batch norm stats</p>
+<p>note that preparation now <a href="https://pytorch.org/docs/stable/generated/torch.ao.quantization.quantize_fx.prepare_qat_fx.html">requires an example input to determine the output types</a>. as before, I’ll freeze the first layer as well as batch norm stats</p>
 <div class="cell" data-execution_count="21">
 <div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="op">%%</span>capture</span>
 <span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> re</span>
