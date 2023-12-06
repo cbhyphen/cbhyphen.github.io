@@ -188,24 +188,23 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li>no requirement to insert quant/dequant stubs in the network which means you can avoid creating those additional wrapper classes</li>
 </ul>
 <p>with that out of the way, let’s dive into FX graph and QAT. as before, we’ll start with creating the resnet backbone but without having to modify the bottleneck to use float functional operator.</p>
-<div class="cell" data-execution_count="18">
-<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torchvision.models.resnet <span class="im">import</span> ResNet, Bottleneck, ResNet101_Weights</span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<div class="cell" data-execution_count="43">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torchvision.models.resnet <span class="im">import</span> ResNet, Bottleneck, ResNet101_Weights</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> resnet_101():</span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    resnet <span class="op">=</span> ResNet(block<span class="op">=</span>Bottleneck, layers<span class="op">=</span>[<span class="dv">3</span>, <span class="dv">4</span>, <span class="dv">23</span>, <span class="dv">3</span>])</span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    resnet.load_state_dict(ResNet101_Weights.DEFAULT.get_state_dict(progress<span class="op">=</span><span class="va">True</span>))</span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> resnet</span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> resnet_101():</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    resnet <span class="op">=</span> ResNet(block<span class="op">=</span>Bottleneck, layers<span class="op">=</span>[<span class="dv">3</span>, <span class="dv">4</span>, <span class="dv">23</span>, <span class="dv">3</span>])</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    resnet.load_state_dict(ResNet101_Weights.DEFAULT.get_state_dict(progress<span class="op">=</span><span class="va">True</span>))</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> resnet</span>
 <span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>resnet <span class="op">=</span> resnet_101()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>resnet <span class="op">=</span> resnet_101()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>at this point, the resnet is fully traceable. <a href="https://pytorch.org/docs/stable/generated/torch.jit.trace.html">tracing it with an example input</a> will return a <code>ScriptModule</code> which can be used to get a <a href="https://pytorch.org/docs/stable/generated/torch.jit.ScriptModule.html#torch.jit.ScriptModule.code">representation of graph’s forward method</a>.</p>
-<div class="cell" data-outputid="da5e316c-f773-4315-d845-17d08823d147" data-execution_count="4">
-<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>traced_module <span class="op">=</span> torch.jit.trace(resnet, torch.rand(<span class="dv">1</span>, <span class="dv">3</span>, <span class="dv">200</span>, <span class="dv">200</span>))</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(traced_module.code)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell" data-outputid="da5e316c-f773-4315-d845-17d08823d147">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>traced_module <span class="op">=</span> torch.jit.trace(resnet, torch.rand(<span class="dv">1</span>, <span class="dv">3</span>, <span class="dv">200</span>, <span class="dv">200</span>))</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(traced_module.code)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>def forward(self,
     x: Tensor) -&gt; Tensor:
@@ -229,7 +228,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </div>
 </div>
 <p>same as the eager mode preparation, the next step is to use torchvision’s helper method <code>IntermediateLayerGetter</code> to extract layer outputs from the resnet to feed to the FPN.</p>
-<div class="cell" data-execution_count="5">
+<div class="cell" data-execution_count="44">
 <div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torchvision.models._utils <span class="im">import</span> IntermediateLayerGetter</span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -242,7 +241,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 ...
 AttributeError: expected a dictionary of (method_name, input) pairs</code></pre>
 <p>this can be ignored if we <a href="https://pytorch.org/docs/master/generated/torch.jit.trace.html">“are sure that the container you are using in your problem is a constant structure and does not get used as control flow (if, for) conditions.”</a> since we know that the output won’t change we can safely ignore this and set <code>strict=False</code>. note that this isn’t necessary for QAT preparation but it’s helpful to know apriori if the parts of the model that we intend to quantize are indeed traceable.</p>
-<div class="cell" data-outputid="806bf3e8-6a87-43c2-a2c8-e0beb6f8b677" data-execution_count="7">
+<div class="cell" data-outputid="806bf3e8-6a87-43c2-a2c8-e0beb6f8b677">
 <div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>traced_module <span class="op">=</span> torch.jit.trace(resnet_layers, torch.rand(<span class="dv">1</span>, <span class="dv">3</span>, <span class="dv">200</span>, <span class="dv">200</span>), strict<span class="op">=</span><span class="va">False</span>)</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(traced_module.code)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
@@ -265,9 +264,9 @@ AttributeError: expected a dictionary of (method_name, input) pairs</code></pre>
 </code></pre>
 </div>
 </div>
-<p>as before, we can create the backbone with FPN, however this time without any modifications. after this, we can trace the module. because the output is a mutable type (ordered dict) and we know it’s structure will not change we again need to set strict mode to false. note that if you don’t there is a slightly different error (shown below) but the reason is the same.</p>
+<p>as before, create the backbone with FPN, however this time without any modifications. after this, the module can be traced. because the output is a mutable type (ordered dict) but it’s structure will not change, strict mode needs to be set to false. note that if you don’t, there is a slightly different error (shown below) but the reason is the same.</p>
 <pre><code>RuntimeError: Encountering a dict at the output of the tracer might cause the trace to be incorrect, this is only valid if the container structure does not change based on the module's inputs. Consider using a constant container instead (e.g. for `list`, use a `tuple` instead. for `dict`, use a `NamedTuple` instead). If you absolutely need this and know the side effects, pass strict=False to trace() to allow this behavior.</code></pre>
-<div class="cell" data-outputid="eee2a697-18ff-47b1-9d3e-74228d8d2b0f" data-execution_count="19">
+<div class="cell" data-execution_count="45">
 <div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torchvision.models.detection.backbone_utils <span class="im">import</span> BackboneWithFPN</span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -282,10 +281,11 @@ AttributeError: expected a dictionary of (method_name, input) pairs</code></pre>
 <span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>    return_layers<span class="op">=</span>return_layers,</span>
 <span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>    in_channels_list<span class="op">=</span>in_channels_list,</span>
 <span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>    out_channels<span class="op">=</span>out_channels</span>
-<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>traced_module <span class="op">=</span> torch.jit.trace(bb_fpn, torch.rand(<span class="dv">1</span>, <span class="dv">3</span>, <span class="dv">200</span>, <span class="dv">200</span>), strict<span class="op">=</span><span class="va">False</span>)</span>
-<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(traced_module.code)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-outputid="eee2a697-18ff-47b1-9d3e-74228d8d2b0f">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>traced_module <span class="op">=</span> torch.jit.trace(bb_fpn, torch.rand(<span class="dv">1</span>, <span class="dv">3</span>, <span class="dv">200</span>, <span class="dv">200</span>), strict<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(traced_module.code)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>def forward(self,
     x: Tensor) -&gt; Dict[str, Tensor]:
@@ -321,216 +321,478 @@ AttributeError: expected a dictionary of (method_name, input) pairs</code></pre>
           (weight_fake_quant): PerChannelMinMaxObserver(min_val=tensor([]), max_val=tensor([]))
           ...</code></pre>
 <p>note that preparation now <a href="https://pytorch.org/docs/stable/generated/torch.ao.quantization.quantize_fx.prepare_qat_fx.html">requires an example input to determine the output types</a>. as before, I’ll freeze the first layer as well as batch norm stats</p>
-<div class="cell" data-execution_count="21">
-<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="op">%%</span>capture</span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> re</span>
-<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torchvision.models.detection.faster_rcnn <span class="im">import</span> FasterRCNN</span>
-<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torch.ao.quantization <span class="im">import</span> quantize_fx</span>
-<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torch.ao.quantization.qconfig_mapping <span class="im">import</span> get_default_qconfig_mapping</span>
-<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>quant_rcnn <span class="op">=</span> FasterRCNN(bb_fpn, num_classes<span class="op">=</span><span class="dv">2</span>)</span>
-<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>example_input <span class="op">=</span> torch.randn(<span class="dv">1</span>, <span class="dv">3</span>, <span class="dv">200</span>, <span class="dv">200</span>)</span>
-<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>quant_rcnn.train()</span>
-<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>qconfig_mapping <span class="op">=</span> get_default_qconfig_mapping(<span class="st">"fbgemm"</span>)</span>
-<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>quant_rcnn.backbone <span class="op">=</span> quantize_fx.prepare_qat_fx(quant_rcnn .backbone, qconfig_mapping, example_input)</span>
-<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>quant_rcnn <span class="op">=</span> quant_rcnn.<span class="bu">apply</span>(torch.nn.intrinsic.qat.freeze_bn_stats)</span>
-<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> name, parameter <span class="kw">in</span> quant_rcnn.named_parameters():</span>
-<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> re.search(<span class="vs">r"body.conv1"</span>, name) <span class="kw">or</span> re.search(<span class="vs">r"body.layer1"</span>, name):</span>
-<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>        parameter.requires_grad <span class="op">=</span> <span class="va">False</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell" data-execution_count="46">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="op">%%</span>capture</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> re</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torchvision.models.detection.faster_rcnn <span class="im">import</span> FasterRCNN</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torch.ao.quantization <span class="im">import</span> quantize_fx</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torch.ao.quantization.qconfig_mapping <span class="im">import</span> get_default_qconfig_mapping</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>quant_rcnn <span class="op">=</span> FasterRCNN(bb_fpn, num_classes<span class="op">=</span><span class="dv">2</span>)</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>example_input <span class="op">=</span> torch.randn(<span class="dv">1</span>, <span class="dv">3</span>, <span class="dv">200</span>, <span class="dv">200</span>)</span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>quant_rcnn.train()</span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>qconfig_mapping <span class="op">=</span> get_default_qconfig_mapping(<span class="st">"fbgemm"</span>)</span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>quant_rcnn.backbone <span class="op">=</span> quantize_fx.prepare_qat_fx(quant_rcnn.backbone, qconfig_mapping, example_input)</span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a>quant_rcnn <span class="op">=</span> quant_rcnn.<span class="bu">apply</span>(torch.nn.intrinsic.qat.freeze_bn_stats)</span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> name, parameter <span class="kw">in</span> quant_rcnn.named_parameters():</span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> re.search(<span class="vs">r"body.conv1"</span>, name) <span class="kw">or</span> re.search(<span class="vs">r"body.layer1"</span>, name):</span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a>        parameter.requires_grad <span class="op">=</span> <span class="va">False</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>as in the previous post, I’ll use the PennFudan dataset from the Torchvision object detection finetuning tutorial…</p>
-<div class="cell" data-execution_count="22">
-<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
-<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
-<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torchvision.io <span class="im">import</span> read_image</span>
-<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torchvision.ops.boxes <span class="im">import</span> masks_to_boxes</span>
-<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torchvision <span class="im">import</span> tv_tensors</span>
-<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torchvision.transforms.v2 <span class="im">import</span> functional <span class="im">as</span> F</span>
-<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torchvision.transforms <span class="im">import</span> v2 <span class="im">as</span> T</span>
-<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> PennFudanDataset(torch.utils.data.Dataset):</span>
-<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, root, transforms):</span>
-<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.root <span class="op">=</span> root</span>
-<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.transforms <span class="op">=</span> transforms</span>
-<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a>        <span class="co"># load all image files, sorting them to</span></span>
-<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a>        <span class="co"># ensure that they are aligned</span></span>
-<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.imgs <span class="op">=</span> <span class="bu">list</span>(<span class="bu">sorted</span>(os.listdir(os.path.join(root, <span class="st">"PNGImages"</span>))))</span>
-<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.masks <span class="op">=</span> <span class="bu">list</span>(<span class="bu">sorted</span>(os.listdir(os.path.join(root, <span class="st">"PedMasks"</span>))))</span>
-<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__getitem__</span>(<span class="va">self</span>, idx):</span>
-<span id="cb13-21"><a href="#cb13-21" aria-hidden="true" tabindex="-1"></a>        <span class="co"># load images and masks</span></span>
-<span id="cb13-22"><a href="#cb13-22" aria-hidden="true" tabindex="-1"></a>        img_path <span class="op">=</span> os.path.join(<span class="va">self</span>.root, <span class="st">"PNGImages"</span>, <span class="va">self</span>.imgs[idx])</span>
-<span id="cb13-23"><a href="#cb13-23" aria-hidden="true" tabindex="-1"></a>        mask_path <span class="op">=</span> os.path.join(<span class="va">self</span>.root, <span class="st">"PedMasks"</span>, <span class="va">self</span>.masks[idx])</span>
-<span id="cb13-24"><a href="#cb13-24" aria-hidden="true" tabindex="-1"></a>        img <span class="op">=</span> read_image(img_path)</span>
-<span id="cb13-25"><a href="#cb13-25" aria-hidden="true" tabindex="-1"></a>        mask <span class="op">=</span> read_image(mask_path)</span>
-<span id="cb13-26"><a href="#cb13-26" aria-hidden="true" tabindex="-1"></a>        <span class="co"># instances are encoded as different colors</span></span>
-<span id="cb13-27"><a href="#cb13-27" aria-hidden="true" tabindex="-1"></a>        obj_ids <span class="op">=</span> torch.unique(mask)</span>
-<span id="cb13-28"><a href="#cb13-28" aria-hidden="true" tabindex="-1"></a>        <span class="co"># first id is the background, so remove it</span></span>
-<span id="cb13-29"><a href="#cb13-29" aria-hidden="true" tabindex="-1"></a>        obj_ids <span class="op">=</span> obj_ids[<span class="dv">1</span>:]</span>
-<span id="cb13-30"><a href="#cb13-30" aria-hidden="true" tabindex="-1"></a>        num_objs <span class="op">=</span> <span class="bu">len</span>(obj_ids)</span>
-<span id="cb13-31"><a href="#cb13-31" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-32"><a href="#cb13-32" aria-hidden="true" tabindex="-1"></a>        <span class="co"># split the color-encoded mask into a set</span></span>
-<span id="cb13-33"><a href="#cb13-33" aria-hidden="true" tabindex="-1"></a>        <span class="co"># of binary masks</span></span>
-<span id="cb13-34"><a href="#cb13-34" aria-hidden="true" tabindex="-1"></a>        masks <span class="op">=</span> (mask <span class="op">==</span> obj_ids[:, <span class="va">None</span>, <span class="va">None</span>]).to(dtype<span class="op">=</span>torch.uint8)</span>
-<span id="cb13-35"><a href="#cb13-35" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-36"><a href="#cb13-36" aria-hidden="true" tabindex="-1"></a>        <span class="co"># get bounding box coordinates for each mask</span></span>
-<span id="cb13-37"><a href="#cb13-37" aria-hidden="true" tabindex="-1"></a>        boxes <span class="op">=</span> masks_to_boxes(masks)</span>
-<span id="cb13-38"><a href="#cb13-38" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-39"><a href="#cb13-39" aria-hidden="true" tabindex="-1"></a>        <span class="co"># there is only one class</span></span>
-<span id="cb13-40"><a href="#cb13-40" aria-hidden="true" tabindex="-1"></a>        labels <span class="op">=</span> torch.ones((num_objs,), dtype<span class="op">=</span>torch.int64)</span>
-<span id="cb13-41"><a href="#cb13-41" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-42"><a href="#cb13-42" aria-hidden="true" tabindex="-1"></a>        image_id <span class="op">=</span> idx</span>
-<span id="cb13-43"><a href="#cb13-43" aria-hidden="true" tabindex="-1"></a>        area <span class="op">=</span> (boxes[:, <span class="dv">3</span>] <span class="op">-</span> boxes[:, <span class="dv">1</span>]) <span class="op">*</span> (boxes[:, <span class="dv">2</span>] <span class="op">-</span> boxes[:, <span class="dv">0</span>])</span>
-<span id="cb13-44"><a href="#cb13-44" aria-hidden="true" tabindex="-1"></a>        <span class="co"># suppose all instances are not crowd</span></span>
-<span id="cb13-45"><a href="#cb13-45" aria-hidden="true" tabindex="-1"></a>        iscrowd <span class="op">=</span> torch.zeros((num_objs,), dtype<span class="op">=</span>torch.int64)</span>
-<span id="cb13-46"><a href="#cb13-46" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-47"><a href="#cb13-47" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Wrap sample and targets into torchvision tv_tensors:</span></span>
-<span id="cb13-48"><a href="#cb13-48" aria-hidden="true" tabindex="-1"></a>        img <span class="op">=</span> tv_tensors.Image(img)</span>
-<span id="cb13-49"><a href="#cb13-49" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-50"><a href="#cb13-50" aria-hidden="true" tabindex="-1"></a>        target <span class="op">=</span> {}</span>
-<span id="cb13-51"><a href="#cb13-51" aria-hidden="true" tabindex="-1"></a>        target[<span class="st">"boxes"</span>] <span class="op">=</span> tv_tensors.BoundingBoxes(boxes, <span class="bu">format</span><span class="op">=</span><span class="st">"XYXY"</span>, canvas_size<span class="op">=</span>F.get_size(img))</span>
-<span id="cb13-52"><a href="#cb13-52" aria-hidden="true" tabindex="-1"></a>        target[<span class="st">"masks"</span>] <span class="op">=</span> tv_tensors.Mask(masks)</span>
-<span id="cb13-53"><a href="#cb13-53" aria-hidden="true" tabindex="-1"></a>        target[<span class="st">"labels"</span>] <span class="op">=</span> labels</span>
-<span id="cb13-54"><a href="#cb13-54" aria-hidden="true" tabindex="-1"></a>        target[<span class="st">"image_id"</span>] <span class="op">=</span> image_id</span>
-<span id="cb13-55"><a href="#cb13-55" aria-hidden="true" tabindex="-1"></a>        target[<span class="st">"area"</span>] <span class="op">=</span> area</span>
-<span id="cb13-56"><a href="#cb13-56" aria-hidden="true" tabindex="-1"></a>        target[<span class="st">"iscrowd"</span>] <span class="op">=</span> iscrowd</span>
-<span id="cb13-57"><a href="#cb13-57" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-58"><a href="#cb13-58" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="va">self</span>.transforms <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
-<span id="cb13-59"><a href="#cb13-59" aria-hidden="true" tabindex="-1"></a>            img, target <span class="op">=</span> <span class="va">self</span>.transforms(img, target)</span>
-<span id="cb13-60"><a href="#cb13-60" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-61"><a href="#cb13-61" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> img, target</span>
-<span id="cb13-62"><a href="#cb13-62" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-63"><a href="#cb13-63" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__len__</span>(<span class="va">self</span>):</span>
-<span id="cb13-64"><a href="#cb13-64" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="bu">len</span>(<span class="va">self</span>.imgs)</span>
-<span id="cb13-65"><a href="#cb13-65" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-66"><a href="#cb13-66" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-67"><a href="#cb13-67" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> get_transform(train):</span>
-<span id="cb13-68"><a href="#cb13-68" aria-hidden="true" tabindex="-1"></a>    transforms <span class="op">=</span> []</span>
-<span id="cb13-69"><a href="#cb13-69" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> train:</span>
-<span id="cb13-70"><a href="#cb13-70" aria-hidden="true" tabindex="-1"></a>        transforms.append(T.RandomHorizontalFlip(<span class="fl">0.5</span>))</span>
-<span id="cb13-71"><a href="#cb13-71" aria-hidden="true" tabindex="-1"></a>    transforms.append(T.ToDtype(torch.<span class="bu">float</span>, scale<span class="op">=</span><span class="va">True</span>))</span>
-<span id="cb13-72"><a href="#cb13-72" aria-hidden="true" tabindex="-1"></a>    transforms.append(T.ToPureTensor())</span>
-<span id="cb13-73"><a href="#cb13-73" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> T.Compose(transforms)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<div class="cell" data-execution_count="23">
-<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="op">%%</span>capture</span>
+<div class="cell" data-execution_count="47">
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
 <span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>os.system(<span class="st">"wget https://raw.githubusercontent.com/pytorch/vision/main/references/detection/engine.py"</span>)</span>
-<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>os.system(<span class="st">"wget https://raw.githubusercontent.com/pytorch/vision/main/references/detection/utils.py"</span>)</span>
-<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>os.system(<span class="st">"wget https://raw.githubusercontent.com/pytorch/vision/main/references/detection/coco_utils.py"</span>)</span>
-<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>os.system(<span class="st">"wget https://raw.githubusercontent.com/pytorch/vision/main/references/detection/coco_eval.py"</span>)</span>
-<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>os.system(<span class="st">"wget https://raw.githubusercontent.com/pytorch/vision/main/references/detection/transforms.py"</span>)</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torchvision.io <span class="im">import</span> read_image</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torchvision.ops.boxes <span class="im">import</span> masks_to_boxes</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torchvision <span class="im">import</span> tv_tensors</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torchvision.transforms.v2 <span class="im">import</span> functional <span class="im">as</span> F</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torchvision.transforms <span class="im">import</span> v2 <span class="im">as</span> T</span>
 <span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a><span class="op">!</span>wget https:<span class="op">//</span>www.cis.upenn.edu<span class="op">/~</span>jshi<span class="op">/</span>ped_html<span class="op">/</span>PennFudanPed.<span class="bu">zip</span></span>
-<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a><span class="op">!</span>unzip PennFudanPed.<span class="bu">zip</span> <span class="op">-</span>d .<span class="op">/</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> PennFudanDataset(torch.utils.data.Dataset):</span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, root, transforms):</span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.root <span class="op">=</span> root</span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.transforms <span class="op">=</span> transforms</span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a>        <span class="co"># load all image files, sorting them to</span></span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a>        <span class="co"># ensure that they are aligned</span></span>
+<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.imgs <span class="op">=</span> <span class="bu">list</span>(<span class="bu">sorted</span>(os.listdir(os.path.join(root, <span class="st">"PNGImages"</span>))))</span>
+<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.masks <span class="op">=</span> <span class="bu">list</span>(<span class="bu">sorted</span>(os.listdir(os.path.join(root, <span class="st">"PedMasks"</span>))))</span>
+<span id="cb14-18"><a href="#cb14-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-19"><a href="#cb14-19" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__getitem__</span>(<span class="va">self</span>, idx):</span>
+<span id="cb14-20"><a href="#cb14-20" aria-hidden="true" tabindex="-1"></a>        <span class="co"># load images and masks</span></span>
+<span id="cb14-21"><a href="#cb14-21" aria-hidden="true" tabindex="-1"></a>        img_path <span class="op">=</span> os.path.join(<span class="va">self</span>.root, <span class="st">"PNGImages"</span>, <span class="va">self</span>.imgs[idx])</span>
+<span id="cb14-22"><a href="#cb14-22" aria-hidden="true" tabindex="-1"></a>        mask_path <span class="op">=</span> os.path.join(<span class="va">self</span>.root, <span class="st">"PedMasks"</span>, <span class="va">self</span>.masks[idx])</span>
+<span id="cb14-23"><a href="#cb14-23" aria-hidden="true" tabindex="-1"></a>        img <span class="op">=</span> read_image(img_path)</span>
+<span id="cb14-24"><a href="#cb14-24" aria-hidden="true" tabindex="-1"></a>        mask <span class="op">=</span> read_image(mask_path)</span>
+<span id="cb14-25"><a href="#cb14-25" aria-hidden="true" tabindex="-1"></a>        <span class="co"># instances are encoded as different colors</span></span>
+<span id="cb14-26"><a href="#cb14-26" aria-hidden="true" tabindex="-1"></a>        obj_ids <span class="op">=</span> torch.unique(mask)</span>
+<span id="cb14-27"><a href="#cb14-27" aria-hidden="true" tabindex="-1"></a>        <span class="co"># first id is the background, so remove it</span></span>
+<span id="cb14-28"><a href="#cb14-28" aria-hidden="true" tabindex="-1"></a>        obj_ids <span class="op">=</span> obj_ids[<span class="dv">1</span>:]</span>
+<span id="cb14-29"><a href="#cb14-29" aria-hidden="true" tabindex="-1"></a>        num_objs <span class="op">=</span> <span class="bu">len</span>(obj_ids)</span>
+<span id="cb14-30"><a href="#cb14-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-31"><a href="#cb14-31" aria-hidden="true" tabindex="-1"></a>        <span class="co"># split the color-encoded mask into a set</span></span>
+<span id="cb14-32"><a href="#cb14-32" aria-hidden="true" tabindex="-1"></a>        <span class="co"># of binary masks</span></span>
+<span id="cb14-33"><a href="#cb14-33" aria-hidden="true" tabindex="-1"></a>        masks <span class="op">=</span> (mask <span class="op">==</span> obj_ids[:, <span class="va">None</span>, <span class="va">None</span>]).to(dtype<span class="op">=</span>torch.uint8)</span>
+<span id="cb14-34"><a href="#cb14-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-35"><a href="#cb14-35" aria-hidden="true" tabindex="-1"></a>        <span class="co"># get bounding box coordinates for each mask</span></span>
+<span id="cb14-36"><a href="#cb14-36" aria-hidden="true" tabindex="-1"></a>        boxes <span class="op">=</span> masks_to_boxes(masks)</span>
+<span id="cb14-37"><a href="#cb14-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-38"><a href="#cb14-38" aria-hidden="true" tabindex="-1"></a>        <span class="co"># there is only one class</span></span>
+<span id="cb14-39"><a href="#cb14-39" aria-hidden="true" tabindex="-1"></a>        labels <span class="op">=</span> torch.ones((num_objs,), dtype<span class="op">=</span>torch.int64)</span>
+<span id="cb14-40"><a href="#cb14-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-41"><a href="#cb14-41" aria-hidden="true" tabindex="-1"></a>        image_id <span class="op">=</span> idx</span>
+<span id="cb14-42"><a href="#cb14-42" aria-hidden="true" tabindex="-1"></a>        area <span class="op">=</span> (boxes[:, <span class="dv">3</span>] <span class="op">-</span> boxes[:, <span class="dv">1</span>]) <span class="op">*</span> (boxes[:, <span class="dv">2</span>] <span class="op">-</span> boxes[:, <span class="dv">0</span>])</span>
+<span id="cb14-43"><a href="#cb14-43" aria-hidden="true" tabindex="-1"></a>        <span class="co"># suppose all instances are not crowd</span></span>
+<span id="cb14-44"><a href="#cb14-44" aria-hidden="true" tabindex="-1"></a>        iscrowd <span class="op">=</span> torch.zeros((num_objs,), dtype<span class="op">=</span>torch.int64)</span>
+<span id="cb14-45"><a href="#cb14-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-46"><a href="#cb14-46" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Wrap sample and targets into torchvision tv_tensors:</span></span>
+<span id="cb14-47"><a href="#cb14-47" aria-hidden="true" tabindex="-1"></a>        img <span class="op">=</span> tv_tensors.Image(img)</span>
+<span id="cb14-48"><a href="#cb14-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-49"><a href="#cb14-49" aria-hidden="true" tabindex="-1"></a>        target <span class="op">=</span> {}</span>
+<span id="cb14-50"><a href="#cb14-50" aria-hidden="true" tabindex="-1"></a>        target[<span class="st">"boxes"</span>] <span class="op">=</span> tv_tensors.BoundingBoxes(boxes, <span class="bu">format</span><span class="op">=</span><span class="st">"XYXY"</span>, canvas_size<span class="op">=</span>F.get_size(img))</span>
+<span id="cb14-51"><a href="#cb14-51" aria-hidden="true" tabindex="-1"></a>        target[<span class="st">"masks"</span>] <span class="op">=</span> tv_tensors.Mask(masks)</span>
+<span id="cb14-52"><a href="#cb14-52" aria-hidden="true" tabindex="-1"></a>        target[<span class="st">"labels"</span>] <span class="op">=</span> labels</span>
+<span id="cb14-53"><a href="#cb14-53" aria-hidden="true" tabindex="-1"></a>        target[<span class="st">"image_id"</span>] <span class="op">=</span> image_id</span>
+<span id="cb14-54"><a href="#cb14-54" aria-hidden="true" tabindex="-1"></a>        target[<span class="st">"area"</span>] <span class="op">=</span> area</span>
+<span id="cb14-55"><a href="#cb14-55" aria-hidden="true" tabindex="-1"></a>        target[<span class="st">"iscrowd"</span>] <span class="op">=</span> iscrowd</span>
+<span id="cb14-56"><a href="#cb14-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-57"><a href="#cb14-57" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="va">self</span>.transforms <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
+<span id="cb14-58"><a href="#cb14-58" aria-hidden="true" tabindex="-1"></a>            img, target <span class="op">=</span> <span class="va">self</span>.transforms(img, target)</span>
+<span id="cb14-59"><a href="#cb14-59" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-60"><a href="#cb14-60" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> img, target</span>
+<span id="cb14-61"><a href="#cb14-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-62"><a href="#cb14-62" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__len__</span>(<span class="va">self</span>):</span>
+<span id="cb14-63"><a href="#cb14-63" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="bu">len</span>(<span class="va">self</span>.imgs)</span>
+<span id="cb14-64"><a href="#cb14-64" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-65"><a href="#cb14-65" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-66"><a href="#cb14-66" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> get_transform(train):</span>
+<span id="cb14-67"><a href="#cb14-67" aria-hidden="true" tabindex="-1"></a>    transforms <span class="op">=</span> []</span>
+<span id="cb14-68"><a href="#cb14-68" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> train:</span>
+<span id="cb14-69"><a href="#cb14-69" aria-hidden="true" tabindex="-1"></a>        transforms.append(T.RandomHorizontalFlip(<span class="fl">0.5</span>))</span>
+<span id="cb14-70"><a href="#cb14-70" aria-hidden="true" tabindex="-1"></a>    transforms.append(T.ToDtype(torch.<span class="bu">float</span>, scale<span class="op">=</span><span class="va">True</span>))</span>
+<span id="cb14-71"><a href="#cb14-71" aria-hidden="true" tabindex="-1"></a>    transforms.append(T.ToPureTensor())</span>
+<span id="cb14-72"><a href="#cb14-72" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> T.Compose(transforms)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-execution_count="24">
-<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> utils</span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> engine <span class="im">import</span> train_one_epoch, evaluate</span>
-<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a><span class="co"># train on the GPU or on the CPU, if a GPU is not available</span></span>
-<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>device <span class="op">=</span> torch.device(<span class="st">'cuda'</span>) <span class="cf">if</span> torch.cuda.is_available() <span class="cf">else</span> torch.device(<span class="st">'cpu'</span>)</span>
-<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a><span class="co"># our dataset has two classes only - background and person</span></span>
-<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>num_classes <span class="op">=</span> <span class="dv">2</span></span>
-<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a><span class="co"># use our dataset and defined transformations</span></span>
-<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>dataset <span class="op">=</span> PennFudanDataset(<span class="st">'PennFudanPed'</span>, get_transform(train<span class="op">=</span><span class="va">True</span>))</span>
-<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a>dataset_test <span class="op">=</span> PennFudanDataset(<span class="st">'PennFudanPed'</span>, get_transform(train<span class="op">=</span><span class="va">False</span>))</span>
-<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a><span class="co"># split the dataset in train and test set</span></span>
-<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a>indices <span class="op">=</span> torch.randperm(<span class="bu">len</span>(dataset)).tolist()</span>
-<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a>dataset <span class="op">=</span> torch.utils.data.Subset(dataset, indices[:<span class="op">-</span><span class="dv">50</span>])</span>
-<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a>dataset_test <span class="op">=</span> torch.utils.data.Subset(dataset_test, indices[<span class="op">-</span><span class="dv">50</span>:])</span>
-<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a><span class="co"># define training and validation data loaders</span></span>
-<span id="cb15-20"><a href="#cb15-20" aria-hidden="true" tabindex="-1"></a>data_loader <span class="op">=</span> torch.utils.data.DataLoader(</span>
-<span id="cb15-21"><a href="#cb15-21" aria-hidden="true" tabindex="-1"></a>    dataset,</span>
-<span id="cb15-22"><a href="#cb15-22" aria-hidden="true" tabindex="-1"></a>    batch_size<span class="op">=</span><span class="dv">1</span>,</span>
-<span id="cb15-23"><a href="#cb15-23" aria-hidden="true" tabindex="-1"></a>    shuffle<span class="op">=</span><span class="va">True</span>,</span>
-<span id="cb15-24"><a href="#cb15-24" aria-hidden="true" tabindex="-1"></a>    num_workers<span class="op">=</span><span class="dv">1</span>,</span>
-<span id="cb15-25"><a href="#cb15-25" aria-hidden="true" tabindex="-1"></a>    collate_fn<span class="op">=</span>utils.collate_fn</span>
-<span id="cb15-26"><a href="#cb15-26" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb15-27"><a href="#cb15-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-28"><a href="#cb15-28" aria-hidden="true" tabindex="-1"></a>data_loader_test <span class="op">=</span> torch.utils.data.DataLoader(</span>
-<span id="cb15-29"><a href="#cb15-29" aria-hidden="true" tabindex="-1"></a>    dataset_test,</span>
-<span id="cb15-30"><a href="#cb15-30" aria-hidden="true" tabindex="-1"></a>    batch_size<span class="op">=</span><span class="dv">1</span>,</span>
-<span id="cb15-31"><a href="#cb15-31" aria-hidden="true" tabindex="-1"></a>    shuffle<span class="op">=</span><span class="va">False</span>,</span>
-<span id="cb15-32"><a href="#cb15-32" aria-hidden="true" tabindex="-1"></a>    num_workers<span class="op">=</span><span class="dv">1</span>,</span>
-<span id="cb15-33"><a href="#cb15-33" aria-hidden="true" tabindex="-1"></a>    collate_fn<span class="op">=</span>utils.collate_fn</span>
-<span id="cb15-34"><a href="#cb15-34" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell" data-execution_count="6">
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="op">%%</span>capture</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>os.system(<span class="st">"wget https://raw.githubusercontent.com/pytorch/vision/main/references/detection/engine.py"</span>)</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>os.system(<span class="st">"wget https://raw.githubusercontent.com/pytorch/vision/main/references/detection/utils.py"</span>)</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>os.system(<span class="st">"wget https://raw.githubusercontent.com/pytorch/vision/main/references/detection/coco_utils.py"</span>)</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>os.system(<span class="st">"wget https://raw.githubusercontent.com/pytorch/vision/main/references/detection/coco_eval.py"</span>)</span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>os.system(<span class="st">"wget https://raw.githubusercontent.com/pytorch/vision/main/references/detection/transforms.py"</span>)</span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a><span class="op">!</span>wget https:<span class="op">//</span>www.cis.upenn.edu<span class="op">/~</span>jshi<span class="op">/</span>ped_html<span class="op">/</span>PennFudanPed.<span class="bu">zip</span></span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a><span class="op">!</span>unzip PennFudanPed.<span class="bu">zip</span> <span class="op">-</span>d .<span class="op">/</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-outputid="cd21b919-1a03-4f27-e8e2-ea94c2023c90" data-execution_count="25">
-<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co"># move model to the right device</span></span>
-<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>quant_rcnn.to(device)</span>
+<div class="cell" data-execution_count="48">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> utils</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> engine <span class="im">import</span> train_one_epoch, evaluate</span>
 <span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a><span class="co"># construct an optimizer</span></span>
-<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>params <span class="op">=</span> [p <span class="cf">for</span> p <span class="kw">in</span> quant_rcnn.parameters() <span class="cf">if</span> p.requires_grad]</span>
-<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>optimizer <span class="op">=</span> torch.optim.SGD(</span>
-<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>    params,</span>
-<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>    lr<span class="op">=</span><span class="fl">0.005</span>,</span>
-<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>    momentum<span class="op">=</span><span class="fl">0.9</span>,</span>
-<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>    weight_decay<span class="op">=</span><span class="fl">0.0005</span></span>
-<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a><span class="co"># and a learning rate scheduler</span></span>
-<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a>lr_scheduler <span class="op">=</span> torch.optim.lr_scheduler.StepLR(</span>
-<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a>    optimizer,</span>
-<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a>    step_size<span class="op">=</span><span class="dv">3</span>,</span>
-<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a>    gamma<span class="op">=</span><span class="fl">0.1</span></span>
-<span id="cb16-18"><a href="#cb16-18" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb16-19"><a href="#cb16-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-20"><a href="#cb16-20" aria-hidden="true" tabindex="-1"></a><span class="co"># let's train it for 10 epochs</span></span>
-<span id="cb16-21"><a href="#cb16-21" aria-hidden="true" tabindex="-1"></a>num_epochs <span class="op">=</span> <span class="dv">10</span></span>
-<span id="cb16-22"><a href="#cb16-22" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-23"><a href="#cb16-23" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> epoch <span class="kw">in</span> <span class="bu">range</span>(num_epochs):</span>
-<span id="cb16-24"><a href="#cb16-24" aria-hidden="true" tabindex="-1"></a>    <span class="co"># train for one epoch, printing every 10 iterations</span></span>
-<span id="cb16-25"><a href="#cb16-25" aria-hidden="true" tabindex="-1"></a>    train_one_epoch(quant_rcnn, optimizer, data_loader, device, epoch, print_freq<span class="op">=</span><span class="dv">10</span>)</span>
-<span id="cb16-26"><a href="#cb16-26" aria-hidden="true" tabindex="-1"></a>    <span class="co"># update the learning rate</span></span>
-<span id="cb16-27"><a href="#cb16-27" aria-hidden="true" tabindex="-1"></a>    lr_scheduler.step()</span>
-<span id="cb16-28"><a href="#cb16-28" aria-hidden="true" tabindex="-1"></a>    <span class="co"># evaluate on the test dataset</span></span>
-<span id="cb16-29"><a href="#cb16-29" aria-hidden="true" tabindex="-1"></a>    evaluate(quant_rcnn, data_loader_test, device<span class="op">=</span>device)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a><span class="co"># train on the GPU or on the CPU, if a GPU is not available</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>device <span class="op">=</span> torch.device(<span class="st">'cuda'</span>) <span class="cf">if</span> torch.cuda.is_available() <span class="cf">else</span> torch.device(<span class="st">'cpu'</span>)</span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a><span class="co"># our dataset has two classes only - background and person</span></span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>num_classes <span class="op">=</span> <span class="dv">2</span></span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a><span class="co"># use our dataset and defined transformations</span></span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>dataset <span class="op">=</span> PennFudanDataset(<span class="st">'PennFudanPed'</span>, get_transform(train<span class="op">=</span><span class="va">True</span>))</span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>dataset_test <span class="op">=</span> PennFudanDataset(<span class="st">'PennFudanPed'</span>, get_transform(train<span class="op">=</span><span class="va">False</span>))</span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a><span class="co"># split the dataset in train and test set</span></span>
+<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a>indices <span class="op">=</span> torch.randperm(<span class="bu">len</span>(dataset)).tolist()</span>
+<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a>dataset <span class="op">=</span> torch.utils.data.Subset(dataset, indices[:<span class="op">-</span><span class="dv">50</span>])</span>
+<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a>dataset_test <span class="op">=</span> torch.utils.data.Subset(dataset_test, indices[<span class="op">-</span><span class="dv">50</span>:])</span>
+<span id="cb16-18"><a href="#cb16-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-19"><a href="#cb16-19" aria-hidden="true" tabindex="-1"></a><span class="co"># define training and validation data loaders</span></span>
+<span id="cb16-20"><a href="#cb16-20" aria-hidden="true" tabindex="-1"></a>data_loader <span class="op">=</span> torch.utils.data.DataLoader(</span>
+<span id="cb16-21"><a href="#cb16-21" aria-hidden="true" tabindex="-1"></a>    dataset,</span>
+<span id="cb16-22"><a href="#cb16-22" aria-hidden="true" tabindex="-1"></a>    batch_size<span class="op">=</span><span class="dv">1</span>,</span>
+<span id="cb16-23"><a href="#cb16-23" aria-hidden="true" tabindex="-1"></a>    shuffle<span class="op">=</span><span class="va">True</span>,</span>
+<span id="cb16-24"><a href="#cb16-24" aria-hidden="true" tabindex="-1"></a>    num_workers<span class="op">=</span><span class="dv">1</span>,</span>
+<span id="cb16-25"><a href="#cb16-25" aria-hidden="true" tabindex="-1"></a>    collate_fn<span class="op">=</span>utils.collate_fn</span>
+<span id="cb16-26"><a href="#cb16-26" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb16-27"><a href="#cb16-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-28"><a href="#cb16-28" aria-hidden="true" tabindex="-1"></a>data_loader_test <span class="op">=</span> torch.utils.data.DataLoader(</span>
+<span id="cb16-29"><a href="#cb16-29" aria-hidden="true" tabindex="-1"></a>    dataset_test,</span>
+<span id="cb16-30"><a href="#cb16-30" aria-hidden="true" tabindex="-1"></a>    batch_size<span class="op">=</span><span class="dv">1</span>,</span>
+<span id="cb16-31"><a href="#cb16-31" aria-hidden="true" tabindex="-1"></a>    shuffle<span class="op">=</span><span class="va">False</span>,</span>
+<span id="cb16-32"><a href="#cb16-32" aria-hidden="true" tabindex="-1"></a>    num_workers<span class="op">=</span><span class="dv">1</span>,</span>
+<span id="cb16-33"><a href="#cb16-33" aria-hidden="true" tabindex="-1"></a>    collate_fn<span class="op">=</span>utils.collate_fn</span>
+<span id="cb16-34"><a href="#cb16-34" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-outputid="1b22ca63-e094-4112-d151-3441e32fe732" data-execution_count="49">
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co"># move model to the right device</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>quant_rcnn.to(device)</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a><span class="co"># construct an optimizer</span></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>params <span class="op">=</span> [p <span class="cf">for</span> p <span class="kw">in</span> quant_rcnn.parameters() <span class="cf">if</span> p.requires_grad]</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>optimizer <span class="op">=</span> torch.optim.SGD(</span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>    params,</span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>    lr<span class="op">=</span><span class="fl">0.005</span>,</span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>    momentum<span class="op">=</span><span class="fl">0.9</span>,</span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a>    weight_decay<span class="op">=</span><span class="fl">0.0005</span></span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a><span class="co"># and a learning rate scheduler</span></span>
+<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a>lr_scheduler <span class="op">=</span> torch.optim.lr_scheduler.StepLR(</span>
+<span id="cb17-15"><a href="#cb17-15" aria-hidden="true" tabindex="-1"></a>    optimizer,</span>
+<span id="cb17-16"><a href="#cb17-16" aria-hidden="true" tabindex="-1"></a>    step_size<span class="op">=</span><span class="dv">3</span>,</span>
+<span id="cb17-17"><a href="#cb17-17" aria-hidden="true" tabindex="-1"></a>    gamma<span class="op">=</span><span class="fl">0.1</span></span>
+<span id="cb17-18"><a href="#cb17-18" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb17-19"><a href="#cb17-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-20"><a href="#cb17-20" aria-hidden="true" tabindex="-1"></a><span class="co"># let's train it for 10 epochs</span></span>
+<span id="cb17-21"><a href="#cb17-21" aria-hidden="true" tabindex="-1"></a>num_epochs <span class="op">=</span> <span class="dv">10</span></span>
+<span id="cb17-22"><a href="#cb17-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-23"><a href="#cb17-23" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> epoch <span class="kw">in</span> <span class="bu">range</span>(num_epochs):</span>
+<span id="cb17-24"><a href="#cb17-24" aria-hidden="true" tabindex="-1"></a>    <span class="co"># train for one epoch, printing every 10 iterations</span></span>
+<span id="cb17-25"><a href="#cb17-25" aria-hidden="true" tabindex="-1"></a>    train_one_epoch(quant_rcnn, optimizer, data_loader, device, epoch, print_freq<span class="op">=</span><span class="dv">20</span>)</span>
+<span id="cb17-26"><a href="#cb17-26" aria-hidden="true" tabindex="-1"></a>    <span class="co"># update the learning rate</span></span>
+<span id="cb17-27"><a href="#cb17-27" aria-hidden="true" tabindex="-1"></a>    lr_scheduler.step()</span>
+<span id="cb17-28"><a href="#cb17-28" aria-hidden="true" tabindex="-1"></a>    <span class="co"># evaluate on the test dataset</span></span>
+<span id="cb17-29"><a href="#cb17-29" aria-hidden="true" tabindex="-1"></a>    evaluate(quant_rcnn, data_loader_test, device<span class="op">=</span>device)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>Epoch: [0]  [  0/120]  eta: 0:16:57  lr: 0.000047  loss: 3.1833 (3.1833)  loss_classifier: 2.4029 (2.4029)  loss_box_reg: 0.0138 (0.0138)  loss_objectness: 0.7201 (0.7201)  loss_rpn_box_reg: 0.0465 (0.0465)  time: 8.4778  data: 0.1050  max mem: 3467
-Epoch: [0]  [ 10/120]  eta: 0:02:32  lr: 0.000467  loss: 0.7261 (1.0924)  loss_classifier: 0.0578 (0.4519)  loss_box_reg: 0.0027 (0.0079)  loss_objectness: 0.6478 (0.6082)  loss_rpn_box_reg: 0.0206 (0.0244)  time: 1.3850  data: 0.0124  max mem: 4112
-Epoch: [0]  [ 20/120]  eta: 0:01:43  lr: 0.000886  loss: 0.5282 (0.7883)  loss_classifier: 0.0766 (0.2908)  loss_box_reg: 0.0388 (0.0545)  loss_objectness: 0.3719 (0.4203)  loss_rpn_box_reg: 0.0179 (0.0228)  time: 0.6608  data: 0.0033  max mem: 4112
-Epoch: [0]  [ 30/120]  eta: 0:01:21  lr: 0.001306  loss: 0.4415 (0.6330)  loss_classifier: 0.0868 (0.2373)  loss_box_reg: 0.1074 (0.0661)  loss_objectness: 0.1051 (0.3091)  loss_rpn_box_reg: 0.0168 (0.0206)  time: 0.6503  data: 0.0034  max mem: 4112
-Epoch: [0]  [ 40/120]  eta: 0:01:08  lr: 0.001726  loss: 0.2593 (0.5681)  loss_classifier: 0.1061 (0.2116)  loss_box_reg: 0.0974 (0.0813)  loss_objectness: 0.0565 (0.2530)  loss_rpn_box_reg: 0.0171 (0.0222)  time: 0.6693  data: 0.0032  max mem: 4112
-Epoch: [0]  [ 50/120]  eta: 0:00:56  lr: 0.002146  loss: 0.2338 (0.5130)  loss_classifier: 0.0974 (0.1916)  loss_box_reg: 0.0979 (0.0869)  loss_objectness: 0.0525 (0.2135)  loss_rpn_box_reg: 0.0125 (0.0209)  time: 0.6621  data: 0.0034  max mem: 4112
-Epoch: [0]  [ 60/120]  eta: 0:00:47  lr: 0.002565  loss: 0.2338 (0.4915)  loss_classifier: 0.0902 (0.1859)  loss_box_reg: 0.0944 (0.0954)  loss_objectness: 0.0451 (0.1887)  loss_rpn_box_reg: 0.0151 (0.0214)  time: 0.6447  data: 0.0035  max mem: 4112
-Epoch: [0]  [ 70/120]  eta: 0:00:38  lr: 0.002985  loss: 0.1885 (0.4502)  loss_classifier: 0.0733 (0.1716)  loss_box_reg: 0.0657 (0.0924)  loss_objectness: 0.0370 (0.1670)  loss_rpn_box_reg: 0.0073 (0.0192)  time: 0.6372  data: 0.0032  max mem: 4112</code></pre>
+<pre><code>Epoch: [0]  [  0/120]  eta: 0:00:51  lr: 0.000047  loss: 1.4356 (1.4356)  loss_classifier: 0.6798 (0.6798)  loss_box_reg: 0.0042 (0.0042)  loss_objectness: 0.6744 (0.6744)  loss_rpn_box_reg: 0.0773 (0.0773)  time: 0.4267  data: 0.1246  max mem: 4118
+Epoch: [0]  [ 20/120]  eta: 0:00:34  lr: 0.000886  loss: 0.7461 (0.8032)  loss_classifier: 0.1333 (0.2406)  loss_box_reg: 0.0412 (0.0626)  loss_objectness: 0.5052 (0.4778)  loss_rpn_box_reg: 0.0116 (0.0222)  time: 0.3406  data: 0.0036  max mem: 4118
+Epoch: [0]  [ 40/120]  eta: 0:00:27  lr: 0.001726  loss: 0.3244 (0.5867)  loss_classifier: 0.1122 (0.1902)  loss_box_reg: 0.0930 (0.0879)  loss_objectness: 0.0811 (0.2863)  loss_rpn_box_reg: 0.0191 (0.0224)  time: 0.3351  data: 0.0035  max mem: 4118
+Epoch: [0]  [ 60/120]  eta: 0:00:20  lr: 0.002565  loss: 0.3139 (0.5107)  loss_classifier: 0.1092 (0.1722)  loss_box_reg: 0.1229 (0.1013)  loss_objectness: 0.0516 (0.2141)  loss_rpn_box_reg: 0.0137 (0.0231)  time: 0.3380  data: 0.0034  max mem: 4118
+Epoch: [0]  [ 80/120]  eta: 0:00:13  lr: 0.003405  loss: 0.2165 (0.4596)  loss_classifier: 0.0779 (0.1560)  loss_box_reg: 0.0868 (0.1079)  loss_objectness: 0.0359 (0.1730)  loss_rpn_box_reg: 0.0122 (0.0226)  time: 0.3359  data: 0.0038  max mem: 4118
+Epoch: [0]  [100/120]  eta: 0:00:06  lr: 0.004244  loss: 0.1732 (0.4241)  loss_classifier: 0.0546 (0.1431)  loss_box_reg: 0.0924 (0.1116)  loss_objectness: 0.0328 (0.1473)  loss_rpn_box_reg: 0.0105 (0.0221)  time: 0.3306  data: 0.0034  max mem: 4118
+Epoch: [0]  [119/120]  eta: 0:00:00  lr: 0.005000  loss: 0.1507 (0.4001)  loss_classifier: 0.0599 (0.1343)  loss_box_reg: 0.0839 (0.1141)  loss_objectness: 0.0171 (0.1304)  loss_rpn_box_reg: 0.0104 (0.0213)  time: 0.3301  data: 0.0033  max mem: 4118
+Epoch: [0] Total time: 0:00:40 (0.3369 s / it)
+creating index...
+index created!
+Test:  [ 0/50]  eta: 0:00:18  model_time: 0.2536 (0.2536)  evaluator_time: 0.0039 (0.0039)  time: 0.3654  data: 0.1060  max mem: 4118
+Test:  [49/50]  eta: 0:00:00  model_time: 0.2215 (0.2262)  evaluator_time: 0.0017 (0.0025)  time: 0.2302  data: 0.0030  max mem: 4118
+Test: Total time: 0:00:11 (0.2365 s / it)
+Averaged stats: model_time: 0.2215 (0.2262)  evaluator_time: 0.0017 (0.0025)
+Accumulating evaluation results...
+DONE (t=0.02s).
+IoU metric: bbox
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.251
+ Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets=100 ] = 0.661
+ Average Precision  (AP) @[ IoU=0.75      | area=   all | maxDets=100 ] = 0.067
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.000
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.024
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.274
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=  1 ] = 0.116
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets= 10 ] = 0.387
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.400
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.000
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.022
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.438
+Epoch: [1]  [  0/120]  eta: 0:00:54  lr: 0.005000  loss: 0.1070 (0.1070)  loss_classifier: 0.0222 (0.0222)  loss_box_reg: 0.0459 (0.0459)  loss_objectness: 0.0226 (0.0226)  loss_rpn_box_reg: 0.0164 (0.0164)  time: 0.4527  data: 0.0874  max mem: 4118
+Epoch: [1]  [ 20/120]  eta: 0:00:34  lr: 0.005000  loss: 0.2121 (0.2348)  loss_classifier: 0.0590 (0.0804)  loss_box_reg: 0.0915 (0.1130)  loss_objectness: 0.0149 (0.0175)  loss_rpn_box_reg: 0.0153 (0.0238)  time: 0.3356  data: 0.0033  max mem: 4118
+Epoch: [1]  [ 40/120]  eta: 0:00:27  lr: 0.005000  loss: 0.2197 (0.2434)  loss_classifier: 0.0628 (0.0799)  loss_box_reg: 0.1179 (0.1204)  loss_objectness: 0.0132 (0.0157)  loss_rpn_box_reg: 0.0287 (0.0274)  time: 0.3409  data: 0.0036  max mem: 4118
+Epoch: [1]  [ 60/120]  eta: 0:00:20  lr: 0.005000  loss: 0.2105 (0.2374)  loss_classifier: 0.0591 (0.0756)  loss_box_reg: 0.1001 (0.1178)  loss_objectness: 0.0117 (0.0164)  loss_rpn_box_reg: 0.0176 (0.0276)  time: 0.3342  data: 0.0034  max mem: 4118
+Epoch: [1]  [ 80/120]  eta: 0:00:13  lr: 0.005000  loss: 0.1133 (0.2263)  loss_classifier: 0.0351 (0.0707)  loss_box_reg: 0.0642 (0.1158)  loss_objectness: 0.0089 (0.0152)  loss_rpn_box_reg: 0.0112 (0.0246)  time: 0.3325  data: 0.0034  max mem: 4118
+Epoch: [1]  [100/120]  eta: 0:00:06  lr: 0.005000  loss: 0.1559 (0.2291)  loss_classifier: 0.0573 (0.0720)  loss_box_reg: 0.0860 (0.1200)  loss_objectness: 0.0060 (0.0138)  loss_rpn_box_reg: 0.0135 (0.0233)  time: 0.3367  data: 0.0034  max mem: 4118
+Epoch: [1]  [119/120]  eta: 0:00:00  lr: 0.005000  loss: 0.1403 (0.2247)  loss_classifier: 0.0440 (0.0706)  loss_box_reg: 0.0860 (0.1195)  loss_objectness: 0.0046 (0.0124)  loss_rpn_box_reg: 0.0103 (0.0221)  time: 0.3353  data: 0.0034  max mem: 4118
+Epoch: [1] Total time: 0:00:40 (0.3375 s / it)
+creating index...
+index created!
+Test:  [ 0/50]  eta: 0:00:19  model_time: 0.2691 (0.2691)  evaluator_time: 0.0068 (0.0068)  time: 0.3851  data: 0.1073  max mem: 4118
+Test:  [49/50]  eta: 0:00:00  model_time: 0.2217 (0.2271)  evaluator_time: 0.0014 (0.0024)  time: 0.2323  data: 0.0040  max mem: 4118
+Test: Total time: 0:00:11 (0.2382 s / it)
+Averaged stats: model_time: 0.2217 (0.2271)  evaluator_time: 0.0014 (0.0024)
+Accumulating evaluation results...
+DONE (t=0.02s).
+IoU metric: bbox
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.452
+ Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets=100 ] = 0.912
+ Average Precision  (AP) @[ IoU=0.75      | area=   all | maxDets=100 ] = 0.297
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.006
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.186
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.485
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=  1 ] = 0.223
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets= 10 ] = 0.556
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.565
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.250
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.378
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.586
+Epoch: [2]  [  0/120]  eta: 0:00:58  lr: 0.005000  loss: 0.3480 (0.3480)  loss_classifier: 0.0969 (0.0969)  loss_box_reg: 0.2045 (0.2045)  loss_objectness: 0.0084 (0.0084)  loss_rpn_box_reg: 0.0382 (0.0382)  time: 0.4848  data: 0.0990  max mem: 4118
+Epoch: [2]  [ 20/120]  eta: 0:00:34  lr: 0.005000  loss: 0.1341 (0.1999)  loss_classifier: 0.0486 (0.0573)  loss_box_reg: 0.0765 (0.1212)  loss_objectness: 0.0035 (0.0042)  loss_rpn_box_reg: 0.0100 (0.0172)  time: 0.3420  data: 0.0034  max mem: 4118
+Epoch: [2]  [ 40/120]  eta: 0:00:27  lr: 0.005000  loss: 0.0984 (0.1881)  loss_classifier: 0.0389 (0.0531)  loss_box_reg: 0.0616 (0.1145)  loss_objectness: 0.0021 (0.0049)  loss_rpn_box_reg: 0.0110 (0.0156)  time: 0.3282  data: 0.0035  max mem: 4118
+Epoch: [2]  [ 60/120]  eta: 0:00:20  lr: 0.005000  loss: 0.1335 (0.1769)  loss_classifier: 0.0371 (0.0497)  loss_box_reg: 0.0836 (0.1082)  loss_objectness: 0.0018 (0.0047)  loss_rpn_box_reg: 0.0074 (0.0143)  time: 0.3309  data: 0.0036  max mem: 4118
+Epoch: [2]  [ 80/120]  eta: 0:00:13  lr: 0.005000  loss: 0.1453 (0.1743)  loss_classifier: 0.0383 (0.0483)  loss_box_reg: 0.0852 (0.1070)  loss_objectness: 0.0028 (0.0044)  loss_rpn_box_reg: 0.0136 (0.0147)  time: 0.3397  data: 0.0034  max mem: 4118
+Epoch: [2]  [100/120]  eta: 0:00:06  lr: 0.005000  loss: 0.1703 (0.1798)  loss_classifier: 0.0410 (0.0487)  loss_box_reg: 0.1154 (0.1093)  loss_objectness: 0.0050 (0.0048)  loss_rpn_box_reg: 0.0190 (0.0170)  time: 0.3397  data: 0.0036  max mem: 4118
+Epoch: [2]  [119/120]  eta: 0:00:00  lr: 0.005000  loss: 0.1078 (0.1789)  loss_classifier: 0.0296 (0.0482)  loss_box_reg: 0.0621 (0.1084)  loss_objectness: 0.0037 (0.0050)  loss_rpn_box_reg: 0.0111 (0.0174)  time: 0.3413  data: 0.0035  max mem: 4118
+Epoch: [2] Total time: 0:00:40 (0.3392 s / it)
+creating index...
+index created!
+Test:  [ 0/50]  eta: 0:00:20  model_time: 0.2938 (0.2938)  evaluator_time: 0.0044 (0.0044)  time: 0.4081  data: 0.1080  max mem: 4118
+Test:  [49/50]  eta: 0:00:00  model_time: 0.2222 (0.2301)  evaluator_time: 0.0012 (0.0019)  time: 0.2304  data: 0.0031  max mem: 4118
+Test: Total time: 0:00:11 (0.2398 s / it)
+Averaged stats: model_time: 0.2222 (0.2301)  evaluator_time: 0.0012 (0.0019)
+Accumulating evaluation results...
+DONE (t=0.02s).
+IoU metric: bbox
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.459
+ Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets=100 ] = 0.935
+ Average Precision  (AP) @[ IoU=0.75      | area=   all | maxDets=100 ] = 0.320
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.050
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.225
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.481
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=  1 ] = 0.236
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets= 10 ] = 0.548
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.563
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.050
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.511
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.576
+Epoch: [3]  [  0/120]  eta: 0:00:53  lr: 0.000500  loss: 0.1714 (0.1714)  loss_classifier: 0.0475 (0.0475)  loss_box_reg: 0.1006 (0.1006)  loss_objectness: 0.0148 (0.0148)  loss_rpn_box_reg: 0.0085 (0.0085)  time: 0.4497  data: 0.0858  max mem: 4118
+Epoch: [3]  [ 20/120]  eta: 0:00:33  lr: 0.000500  loss: 0.1223 (0.1611)  loss_classifier: 0.0343 (0.0433)  loss_box_reg: 0.0736 (0.0934)  loss_objectness: 0.0054 (0.0082)  loss_rpn_box_reg: 0.0094 (0.0161)  time: 0.3345  data: 0.0034  max mem: 4118
+Epoch: [3]  [ 40/120]  eta: 0:00:27  lr: 0.000500  loss: 0.1039 (0.1498)  loss_classifier: 0.0250 (0.0406)  loss_box_reg: 0.0655 (0.0887)  loss_objectness: 0.0042 (0.0069)  loss_rpn_box_reg: 0.0079 (0.0136)  time: 0.3398  data: 0.0043  max mem: 4118
+Epoch: [3]  [ 60/120]  eta: 0:00:20  lr: 0.000500  loss: 0.1237 (0.1445)  loss_classifier: 0.0331 (0.0395)  loss_box_reg: 0.0722 (0.0850)  loss_objectness: 0.0045 (0.0065)  loss_rpn_box_reg: 0.0057 (0.0135)  time: 0.3353  data: 0.0036  max mem: 4118
+Epoch: [3]  [ 80/120]  eta: 0:00:13  lr: 0.000500  loss: 0.1128 (0.1440)  loss_classifier: 0.0337 (0.0392)  loss_box_reg: 0.0734 (0.0857)  loss_objectness: 0.0039 (0.0061)  loss_rpn_box_reg: 0.0069 (0.0130)  time: 0.3368  data: 0.0034  max mem: 4118
+Epoch: [3]  [100/120]  eta: 0:00:06  lr: 0.000500  loss: 0.1441 (0.1482)  loss_classifier: 0.0359 (0.0405)  loss_box_reg: 0.0901 (0.0893)  loss_objectness: 0.0033 (0.0058)  loss_rpn_box_reg: 0.0099 (0.0126)  time: 0.3267  data: 0.0035  max mem: 4118
+Epoch: [3]  [119/120]  eta: 0:00:00  lr: 0.000500  loss: 0.1051 (0.1469)  loss_classifier: 0.0276 (0.0398)  loss_box_reg: 0.0678 (0.0895)  loss_objectness: 0.0020 (0.0054)  loss_rpn_box_reg: 0.0067 (0.0122)  time: 0.3282  data: 0.0040  max mem: 4118
+Epoch: [3] Total time: 0:00:40 (0.3354 s / it)
+creating index...
+index created!
+Test:  [ 0/50]  eta: 0:00:18  model_time: 0.2583 (0.2583)  evaluator_time: 0.0039 (0.0039)  time: 0.3704  data: 0.1063  max mem: 4118
+Test:  [49/50]  eta: 0:00:00  model_time: 0.2236 (0.2284)  evaluator_time: 0.0012 (0.0017)  time: 0.2295  data: 0.0030  max mem: 4118
+Test: Total time: 0:00:11 (0.2384 s / it)
+Averaged stats: model_time: 0.2236 (0.2284)  evaluator_time: 0.0012 (0.0017)
+Accumulating evaluation results...
+DONE (t=0.02s).
+IoU metric: bbox
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.538
+ Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets=100 ] = 0.950
+ Average Precision  (AP) @[ IoU=0.75      | area=   all | maxDets=100 ] = 0.583
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.000
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.327
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.562
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=  1 ] = 0.269
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets= 10 ] = 0.604
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.606
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.000
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.511
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.625
+Epoch: [4]  [  0/120]  eta: 0:00:57  lr: 0.000500  loss: 0.0602 (0.0602)  loss_classifier: 0.0157 (0.0157)  loss_box_reg: 0.0431 (0.0431)  loss_objectness: 0.0002 (0.0002)  loss_rpn_box_reg: 0.0012 (0.0012)  time: 0.4826  data: 0.0982  max mem: 4118
+Epoch: [4]  [ 20/120]  eta: 0:00:34  lr: 0.000500  loss: 0.1051 (0.1215)  loss_classifier: 0.0246 (0.0325)  loss_box_reg: 0.0664 (0.0777)  loss_objectness: 0.0020 (0.0024)  loss_rpn_box_reg: 0.0048 (0.0089)  time: 0.3355  data: 0.0034  max mem: 4118
+Epoch: [4]  [ 40/120]  eta: 0:00:27  lr: 0.000500  loss: 0.1095 (0.1227)  loss_classifier: 0.0317 (0.0330)  loss_box_reg: 0.0637 (0.0783)  loss_objectness: 0.0026 (0.0028)  loss_rpn_box_reg: 0.0056 (0.0085)  time: 0.3335  data: 0.0035  max mem: 4118
+Epoch: [4]  [ 60/120]  eta: 0:00:20  lr: 0.000500  loss: 0.1261 (0.1309)  loss_classifier: 0.0346 (0.0349)  loss_box_reg: 0.0821 (0.0832)  loss_objectness: 0.0018 (0.0029)  loss_rpn_box_reg: 0.0095 (0.0098)  time: 0.3379  data: 0.0034  max mem: 4118
+Epoch: [4]  [ 80/120]  eta: 0:00:13  lr: 0.000500  loss: 0.1560 (0.1396)  loss_classifier: 0.0446 (0.0380)  loss_box_reg: 0.0914 (0.0881)  loss_objectness: 0.0025 (0.0034)  loss_rpn_box_reg: 0.0076 (0.0101)  time: 0.3355  data: 0.0035  max mem: 4118
+Epoch: [4]  [100/120]  eta: 0:00:06  lr: 0.000500  loss: 0.1295 (0.1440)  loss_classifier: 0.0324 (0.0394)  loss_box_reg: 0.0877 (0.0905)  loss_objectness: 0.0026 (0.0038)  loss_rpn_box_reg: 0.0076 (0.0103)  time: 0.3268  data: 0.0034  max mem: 4118
+Epoch: [4]  [119/120]  eta: 0:00:00  lr: 0.000500  loss: 0.1028 (0.1440)  loss_classifier: 0.0250 (0.0395)  loss_box_reg: 0.0653 (0.0907)  loss_objectness: 0.0020 (0.0036)  loss_rpn_box_reg: 0.0063 (0.0103)  time: 0.3404  data: 0.0035  max mem: 4118
+Epoch: [4] Total time: 0:00:40 (0.3367 s / it)
+creating index...
+index created!
+Test:  [ 0/50]  eta: 0:00:18  model_time: 0.2581 (0.2581)  evaluator_time: 0.0042 (0.0042)  time: 0.3692  data: 0.1050  max mem: 4118
+Test:  [49/50]  eta: 0:00:00  model_time: 0.2333 (0.2339)  evaluator_time: 0.0013 (0.0018)  time: 0.2418  data: 0.0033  max mem: 4118
+Test: Total time: 0:00:12 (0.2438 s / it)
+Averaged stats: model_time: 0.2333 (0.2339)  evaluator_time: 0.0013 (0.0018)
+Accumulating evaluation results...
+DONE (t=0.02s).
+IoU metric: bbox
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.583
+ Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets=100 ] = 0.971
+ Average Precision  (AP) @[ IoU=0.75      | area=   all | maxDets=100 ] = 0.633
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.025
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.325
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.609
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=  1 ] = 0.286
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets= 10 ] = 0.646
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.649
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.100
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.511
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.670
+Epoch: [5]  [  0/120]  eta: 0:00:56  lr: 0.000500  loss: 0.0435 (0.0435)  loss_classifier: 0.0182 (0.0182)  loss_box_reg: 0.0232 (0.0232)  loss_objectness: 0.0003 (0.0003)  loss_rpn_box_reg: 0.0019 (0.0019)  time: 0.4734  data: 0.0969  max mem: 4118
+Epoch: [5]  [ 20/120]  eta: 0:00:35  lr: 0.000500  loss: 0.1120 (0.1410)  loss_classifier: 0.0310 (0.0395)  loss_box_reg: 0.0774 (0.0894)  loss_objectness: 0.0016 (0.0022)  loss_rpn_box_reg: 0.0084 (0.0098)  time: 0.3440  data: 0.0039  max mem: 4118
+Epoch: [5]  [ 40/120]  eta: 0:00:27  lr: 0.000500  loss: 0.1002 (0.1318)  loss_classifier: 0.0299 (0.0363)  loss_box_reg: 0.0614 (0.0834)  loss_objectness: 0.0017 (0.0030)  loss_rpn_box_reg: 0.0032 (0.0092)  time: 0.3488  data: 0.0035  max mem: 4118
+Epoch: [5]  [ 60/120]  eta: 0:00:20  lr: 0.000500  loss: 0.1339 (0.1381)  loss_classifier: 0.0293 (0.0373)  loss_box_reg: 0.0939 (0.0883)  loss_objectness: 0.0016 (0.0031)  loss_rpn_box_reg: 0.0062 (0.0094)  time: 0.3475  data: 0.0038  max mem: 4118
+Epoch: [5]  [ 80/120]  eta: 0:00:13  lr: 0.000500  loss: 0.1281 (0.1397)  loss_classifier: 0.0369 (0.0377)  loss_box_reg: 0.0801 (0.0898)  loss_objectness: 0.0013 (0.0029)  loss_rpn_box_reg: 0.0071 (0.0093)  time: 0.3423  data: 0.0034  max mem: 4118
+Epoch: [5]  [100/120]  eta: 0:00:06  lr: 0.000500  loss: 0.1085 (0.1398)  loss_classifier: 0.0381 (0.0377)  loss_box_reg: 0.0637 (0.0892)  loss_objectness: 0.0011 (0.0029)  loss_rpn_box_reg: 0.0064 (0.0100)  time: 0.3382  data: 0.0033  max mem: 4118
+Epoch: [5]  [119/120]  eta: 0:00:00  lr: 0.000500  loss: 0.1180 (0.1382)  loss_classifier: 0.0275 (0.0378)  loss_box_reg: 0.0697 (0.0880)  loss_objectness: 0.0012 (0.0027)  loss_rpn_box_reg: 0.0055 (0.0096)  time: 0.3403  data: 0.0034  max mem: 4118
+Epoch: [5] Total time: 0:00:41 (0.3456 s / it)
+creating index...
+index created!
+Test:  [ 0/50]  eta: 0:00:18  model_time: 0.2561 (0.2561)  evaluator_time: 0.0037 (0.0037)  time: 0.3699  data: 0.1082  max mem: 4118
+Test:  [49/50]  eta: 0:00:00  model_time: 0.2226 (0.2282)  evaluator_time: 0.0011 (0.0016)  time: 0.2313  data: 0.0031  max mem: 4118
+Test: Total time: 0:00:11 (0.2378 s / it)
+Averaged stats: model_time: 0.2226 (0.2282)  evaluator_time: 0.0011 (0.0016)
+Accumulating evaluation results...
+DONE (t=0.02s).
+IoU metric: bbox
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.585
+ Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets=100 ] = 0.955
+ Average Precision  (AP) @[ IoU=0.75      | area=   all | maxDets=100 ] = 0.682
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.000
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.282
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.615
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=  1 ] = 0.285
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets= 10 ] = 0.645
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.651
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.000
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.500
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.675
+Epoch: [6]  [  0/120]  eta: 0:00:54  lr: 0.000050  loss: 0.0497 (0.0497)  loss_classifier: 0.0101 (0.0101)  loss_box_reg: 0.0377 (0.0377)  loss_objectness: 0.0006 (0.0006)  loss_rpn_box_reg: 0.0013 (0.0013)  time: 0.4527  data: 0.0854  max mem: 4118
+Epoch: [6]  [ 20/120]  eta: 0:00:35  lr: 0.000050  loss: 0.1043 (0.1187)  loss_classifier: 0.0288 (0.0338)  loss_box_reg: 0.0714 (0.0760)  loss_objectness: 0.0013 (0.0016)  loss_rpn_box_reg: 0.0054 (0.0073)  time: 0.3507  data: 0.0036  max mem: 4118
+Epoch: [6]  [ 40/120]  eta: 0:00:27  lr: 0.000050  loss: 0.1110 (0.1172)  loss_classifier: 0.0277 (0.0320)  loss_box_reg: 0.0755 (0.0755)  loss_objectness: 0.0018 (0.0021)  loss_rpn_box_reg: 0.0057 (0.0076)  time: 0.3412  data: 0.0037  max mem: 4118
+Epoch: [6]  [ 60/120]  eta: 0:00:20  lr: 0.000050  loss: 0.1067 (0.1196)  loss_classifier: 0.0275 (0.0325)  loss_box_reg: 0.0619 (0.0772)  loss_objectness: 0.0012 (0.0025)  loss_rpn_box_reg: 0.0031 (0.0074)  time: 0.3431  data: 0.0041  max mem: 4118
+Epoch: [6]  [ 80/120]  eta: 0:00:13  lr: 0.000050  loss: 0.1232 (0.1236)  loss_classifier: 0.0333 (0.0336)  loss_box_reg: 0.0801 (0.0791)  loss_objectness: 0.0015 (0.0026)  loss_rpn_box_reg: 0.0056 (0.0083)  time: 0.3325  data: 0.0034  max mem: 4118
+Epoch: [6]  [100/120]  eta: 0:00:06  lr: 0.000050  loss: 0.1273 (0.1281)  loss_classifier: 0.0300 (0.0351)  loss_box_reg: 0.0806 (0.0819)  loss_objectness: 0.0015 (0.0029)  loss_rpn_box_reg: 0.0062 (0.0082)  time: 0.3556  data: 0.0042  max mem: 4118
+Epoch: [6]  [119/120]  eta: 0:00:00  lr: 0.000050  loss: 0.0951 (0.1297)  loss_classifier: 0.0295 (0.0357)  loss_box_reg: 0.0680 (0.0830)  loss_objectness: 0.0015 (0.0027)  loss_rpn_box_reg: 0.0039 (0.0083)  time: 0.3447  data: 0.0040  max mem: 4118
+Epoch: [6] Total time: 0:00:41 (0.3464 s / it)
+creating index...
+index created!
+Test:  [ 0/50]  eta: 0:00:18  model_time: 0.2564 (0.2564)  evaluator_time: 0.0036 (0.0036)  time: 0.3700  data: 0.1081  max mem: 4118
+Test:  [49/50]  eta: 0:00:00  model_time: 0.2383 (0.2413)  evaluator_time: 0.0013 (0.0017)  time: 0.2628  data: 0.0039  max mem: 4118
+Test: Total time: 0:00:12 (0.2515 s / it)
+Averaged stats: model_time: 0.2383 (0.2413)  evaluator_time: 0.0013 (0.0017)
+Accumulating evaluation results...
+DONE (t=0.01s).
+IoU metric: bbox
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.602
+ Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets=100 ] = 0.961
+ Average Precision  (AP) @[ IoU=0.75      | area=   all | maxDets=100 ] = 0.693
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.000
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.301
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.634
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=  1 ] = 0.288
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets= 10 ] = 0.662
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.667
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.000
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.478
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.695
+Epoch: [7]  [  0/120]  eta: 0:00:54  lr: 0.000050  loss: 0.0397 (0.0397)  loss_classifier: 0.0133 (0.0133)  loss_box_reg: 0.0253 (0.0253)  loss_objectness: 0.0010 (0.0010)  loss_rpn_box_reg: 0.0001 (0.0001)  time: 0.4533  data: 0.0919  max mem: 4118
+Epoch: [7]  [ 20/120]  eta: 0:00:35  lr: 0.000050  loss: 0.1022 (0.1146)  loss_classifier: 0.0279 (0.0318)  loss_box_reg: 0.0659 (0.0724)  loss_objectness: 0.0010 (0.0017)  loss_rpn_box_reg: 0.0057 (0.0087)  time: 0.3465  data: 0.0035  max mem: 4118
+Epoch: [7]  [ 40/120]  eta: 0:00:27  lr: 0.000050  loss: 0.1042 (0.1220)  loss_classifier: 0.0261 (0.0332)  loss_box_reg: 0.0658 (0.0781)  loss_objectness: 0.0013 (0.0020)  loss_rpn_box_reg: 0.0059 (0.0088)  time: 0.3374  data: 0.0036  max mem: 4118
+Epoch: [7]  [ 60/120]  eta: 0:00:20  lr: 0.000050  loss: 0.1504 (0.1340)  loss_classifier: 0.0459 (0.0371)  loss_box_reg: 0.0936 (0.0850)  loss_objectness: 0.0019 (0.0022)  loss_rpn_box_reg: 0.0067 (0.0097)  time: 0.3477  data: 0.0037  max mem: 4118
+Epoch: [7]  [ 80/120]  eta: 0:00:13  lr: 0.000050  loss: 0.0815 (0.1321)  loss_classifier: 0.0239 (0.0366)  loss_box_reg: 0.0501 (0.0832)  loss_objectness: 0.0021 (0.0031)  loss_rpn_box_reg: 0.0062 (0.0091)  time: 0.3354  data: 0.0037  max mem: 4118
+Epoch: [7]  [100/120]  eta: 0:00:06  lr: 0.000050  loss: 0.0972 (0.1313)  loss_classifier: 0.0236 (0.0359)  loss_box_reg: 0.0704 (0.0836)  loss_objectness: 0.0016 (0.0029)  loss_rpn_box_reg: 0.0051 (0.0089)  time: 0.3420  data: 0.0037  max mem: 4118
+Epoch: [7]  [119/120]  eta: 0:00:00  lr: 0.000050  loss: 0.0925 (0.1308)  loss_classifier: 0.0259 (0.0360)  loss_box_reg: 0.0534 (0.0835)  loss_objectness: 0.0010 (0.0026)  loss_rpn_box_reg: 0.0040 (0.0087)  time: 0.3312  data: 0.0035  max mem: 4118
+Epoch: [7] Total time: 0:00:41 (0.3420 s / it)
+creating index...
+index created!
+Test:  [ 0/50]  eta: 0:00:19  model_time: 0.2790 (0.2790)  evaluator_time: 0.0040 (0.0040)  time: 0.3950  data: 0.1099  max mem: 4118
+Test:  [49/50]  eta: 0:00:00  model_time: 0.2328 (0.2311)  evaluator_time: 0.0012 (0.0017)  time: 0.2403  data: 0.0032  max mem: 4118
+Test: Total time: 0:00:12 (0.2411 s / it)
+Averaged stats: model_time: 0.2328 (0.2311)  evaluator_time: 0.0012 (0.0017)
+Accumulating evaluation results...
+DONE (t=0.02s).
+IoU metric: bbox
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.606
+ Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets=100 ] = 0.965
+ Average Precision  (AP) @[ IoU=0.75      | area=   all | maxDets=100 ] = 0.691
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.000
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.309
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.637
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=  1 ] = 0.290
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets= 10 ] = 0.660
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.664
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.000
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.478
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.692
+Epoch: [8]  [  0/120]  eta: 0:01:06  lr: 0.000050  loss: 0.3302 (0.3302)  loss_classifier: 0.0762 (0.0762)  loss_box_reg: 0.2121 (0.2121)  loss_objectness: 0.0069 (0.0069)  loss_rpn_box_reg: 0.0350 (0.0350)  time: 0.5563  data: 0.1245  max mem: 4118
+Epoch: [8]  [ 20/120]  eta: 0:00:34  lr: 0.000050  loss: 0.0942 (0.1334)  loss_classifier: 0.0245 (0.0366)  loss_box_reg: 0.0559 (0.0851)  loss_objectness: 0.0008 (0.0020)  loss_rpn_box_reg: 0.0059 (0.0096)  time: 0.3338  data: 0.0036  max mem: 4118
+Epoch: [8]  [ 40/120]  eta: 0:00:27  lr: 0.000050  loss: 0.0989 (0.1257)  loss_classifier: 0.0283 (0.0342)  loss_box_reg: 0.0635 (0.0807)  loss_objectness: 0.0007 (0.0023)  loss_rpn_box_reg: 0.0052 (0.0084)  time: 0.3320  data: 0.0034  max mem: 4118
+Epoch: [8]  [ 60/120]  eta: 0:00:20  lr: 0.000050  loss: 0.1265 (0.1325)  loss_classifier: 0.0325 (0.0360)  loss_box_reg: 0.0893 (0.0857)  loss_objectness: 0.0014 (0.0027)  loss_rpn_box_reg: 0.0044 (0.0082)  time: 0.3368  data: 0.0035  max mem: 4118
+Epoch: [8]  [ 80/120]  eta: 0:00:13  lr: 0.000050  loss: 0.0977 (0.1320)  loss_classifier: 0.0235 (0.0357)  loss_box_reg: 0.0558 (0.0858)  loss_objectness: 0.0011 (0.0025)  loss_rpn_box_reg: 0.0047 (0.0080)  time: 0.3376  data: 0.0035  max mem: 4118
+Epoch: [8]  [100/120]  eta: 0:00:06  lr: 0.000050  loss: 0.1137 (0.1329)  loss_classifier: 0.0276 (0.0362)  loss_box_reg: 0.0748 (0.0859)  loss_objectness: 0.0012 (0.0024)  loss_rpn_box_reg: 0.0038 (0.0084)  time: 0.3383  data: 0.0036  max mem: 4118
+Epoch: [8]  [119/120]  eta: 0:00:00  lr: 0.000050  loss: 0.1221 (0.1300)  loss_classifier: 0.0341 (0.0358)  loss_box_reg: 0.0712 (0.0832)  loss_objectness: 0.0021 (0.0026)  loss_rpn_box_reg: 0.0057 (0.0084)  time: 0.3293  data: 0.0034  max mem: 4118
+Epoch: [8] Total time: 0:00:40 (0.3374 s / it)
+creating index...
+index created!
+Test:  [ 0/50]  eta: 0:00:18  model_time: 0.2610 (0.2610)  evaluator_time: 0.0036 (0.0036)  time: 0.3756  data: 0.1088  max mem: 4118
+Test:  [49/50]  eta: 0:00:00  model_time: 0.2253 (0.2335)  evaluator_time: 0.0012 (0.0017)  time: 0.2361  data: 0.0032  max mem: 4118
+Test: Total time: 0:00:12 (0.2433 s / it)
+Averaged stats: model_time: 0.2253 (0.2335)  evaluator_time: 0.0012 (0.0017)
+Accumulating evaluation results...
+DONE (t=0.01s).
+IoU metric: bbox
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.597
+ Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets=100 ] = 0.958
+ Average Precision  (AP) @[ IoU=0.75      | area=   all | maxDets=100 ] = 0.666
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.000
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.294
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.629
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=  1 ] = 0.289
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets= 10 ] = 0.655
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.660
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.000
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.478
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.686
+Epoch: [9]  [  0/120]  eta: 0:01:02  lr: 0.000005  loss: 0.2162 (0.2162)  loss_classifier: 0.0581 (0.0581)  loss_box_reg: 0.1423 (0.1423)  loss_objectness: 0.0041 (0.0041)  loss_rpn_box_reg: 0.0117 (0.0117)  time: 0.5208  data: 0.1063  max mem: 4118
+Epoch: [9]  [ 20/120]  eta: 0:00:35  lr: 0.000005  loss: 0.0883 (0.1108)  loss_classifier: 0.0271 (0.0284)  loss_box_reg: 0.0535 (0.0702)  loss_objectness: 0.0010 (0.0027)  loss_rpn_box_reg: 0.0041 (0.0094)  time: 0.3453  data: 0.0035  max mem: 4118
+Epoch: [9]  [ 40/120]  eta: 0:00:28  lr: 0.000005  loss: 0.1093 (0.1252)  loss_classifier: 0.0293 (0.0329)  loss_box_reg: 0.0642 (0.0813)  loss_objectness: 0.0010 (0.0022)  loss_rpn_box_reg: 0.0046 (0.0089)  time: 0.3466  data: 0.0036  max mem: 4118
+Epoch: [9]  [ 60/120]  eta: 0:00:20  lr: 0.000005  loss: 0.0878 (0.1183)  loss_classifier: 0.0182 (0.0316)  loss_box_reg: 0.0387 (0.0765)  loss_objectness: 0.0009 (0.0023)  loss_rpn_box_reg: 0.0036 (0.0079)  time: 0.3363  data: 0.0036  max mem: 4118
+Epoch: [9]  [ 80/120]  eta: 0:00:13  lr: 0.000005  loss: 0.1186 (0.1250)  loss_classifier: 0.0355 (0.0338)  loss_box_reg: 0.0691 (0.0806)  loss_objectness: 0.0009 (0.0022)  loss_rpn_box_reg: 0.0057 (0.0085)  time: 0.3427  data: 0.0037  max mem: 4118
+Epoch: [9]  [100/120]  eta: 0:00:06  lr: 0.000005  loss: 0.1115 (0.1301)  loss_classifier: 0.0311 (0.0347)  loss_box_reg: 0.0739 (0.0850)  loss_objectness: 0.0017 (0.0021)  loss_rpn_box_reg: 0.0062 (0.0084)  time: 0.3343  data: 0.0035  max mem: 4118
+Epoch: [9]  [119/120]  eta: 0:00:00  lr: 0.000005  loss: 0.0857 (0.1269)  loss_classifier: 0.0257 (0.0340)  loss_box_reg: 0.0551 (0.0826)  loss_objectness: 0.0013 (0.0021)  loss_rpn_box_reg: 0.0066 (0.0081)  time: 0.3332  data: 0.0038  max mem: 4118
+Epoch: [9] Total time: 0:00:41 (0.3417 s / it)
+creating index...
+index created!
+Test:  [ 0/50]  eta: 0:00:18  model_time: 0.2536 (0.2536)  evaluator_time: 0.0036 (0.0036)  time: 0.3713  data: 0.1122  max mem: 4118
+Test:  [49/50]  eta: 0:00:00  model_time: 0.2274 (0.2330)  evaluator_time: 0.0012 (0.0017)  time: 0.2359  data: 0.0033  max mem: 4118
+Test: Total time: 0:00:12 (0.2430 s / it)
+Averaged stats: model_time: 0.2274 (0.2330)  evaluator_time: 0.0012 (0.0017)
+Accumulating evaluation results...
+DONE (t=0.02s).
+IoU metric: bbox
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.602
+ Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets=100 ] = 0.964
+ Average Precision  (AP) @[ IoU=0.75      | area=   all | maxDets=100 ] = 0.679
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.000
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.315
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.633
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=  1 ] = 0.288
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets= 10 ] = 0.660
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.664
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.000
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.478
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.691</code></pre>
 </div>
-<div class="cell-output cell-output-error">
-<pre><code>KeyboardInterrupt: ignored</code></pre>
 </div>
-</div>
-<div class="cell" data-execution_count="27">
+<div class="cell" data-execution_count="50">
 <div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="co"># convert to quantized</span></span>
 <span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>quant_rcnn.to(torch.device(<span class="st">'cpu'</span>))</span>
 <span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>quant_rcnn.<span class="bu">eval</span>()</span>
 <span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>quant_rcnn.backbone <span class="op">=</span> quantize_fx.convert_fx(quant_rcnn.backbone)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<div class="cell" data-outputid="4e5bdacc-a93d-428d-f619-b65f3e84aecd" data-execution_count="29">
-<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> time <span class="im">import</span> perf_counter</span>
-<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>images, targets <span class="op">=</span> <span class="bu">next</span>(<span class="bu">iter</span>(data_loader_test))</span>
-<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>images <span class="op">=</span> <span class="bu">list</span>(img.to(torch.device(<span class="st">'cpu'</span>)) <span class="cf">for</span> img <span class="kw">in</span> images)</span>
-<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>n <span class="op">=</span> <span class="dv">10</span></span>
-<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>start <span class="op">=</span> perf_counter()</span>
-<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> _ <span class="kw">in</span> <span class="bu">range</span>(n):</span>
-<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a>    __ <span class="op">=</span> quant_rcnn(images)</span>
-<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"quant model avg time: </span><span class="sc">{</span>(perf_counter() <span class="op">-</span> start) <span class="op">/</span> n<span class="sc">:.2f}</span><span class="ss">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>quant model avg time: 1.16</code></pre>
-</div>
 </div>
 <p>because the model is symbolically traceable, we can save it as a torch script. this has the advantage that it is has no torch dependencies and we don’t need to instantiate the model and load the state dict as done with eager mode. this decouples model creation with usage as long as input types are known. the graph module is also now a recursive script module</p>
 <pre><code>RecursiveScriptModule(
@@ -555,27 +817,76 @@ Epoch: [0]  [ 70/120]  eta: 0:00:38  lr: 0.002985  loss: 0.1885 (0.4502)  loss_c
           )
         )
         ...</code></pre>
-<div class="cell" data-execution_count="30">
-<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>script_module <span class="op">=</span> torch.jit.script(quant_rcnn)</span>
-<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>script_module.save(<span class="st">"./quant_rcnn_torchscript.pt"</span>)</span>
-<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>quant_rcnn_jit <span class="op">=</span> torch.jit.load(<span class="st">"./quant_rcnn_torchscript.pt"</span>, map_location<span class="op">=</span>torch.device(<span class="st">'cpu'</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell" data-execution_count="51">
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>script_module <span class="op">=</span> torch.jit.script(quant_rcnn)</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>script_module.save(<span class="st">"./quant_rcnn_torchscript.pt"</span>)</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>quant_rcnn_jit <span class="op">=</span> torch.jit.load(<span class="st">"./quant_rcnn_torchscript.pt"</span>, map_location<span class="op">=</span>torch.device(<span class="st">'cpu'</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-outputid="2ffa057e-be0b-49ab-e720-2cf4b30dd9b8" data-execution_count="35">
-<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="co"># </span><span class="al">TODO</span><span class="co"> warm-up first</span></span>
-<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>start <span class="op">=</span> perf_counter()</span>
-<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> _ <span class="kw">in</span> <span class="bu">range</span>(n):</span>
-<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a>    __ <span class="op">=</span> quant_rcnn_jit(images)</span>
-<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"quant model avg time: </span><span class="sc">{</span>(perf_counter() <span class="op">-</span> start) <span class="op">/</span> n<span class="sc">:.2f}</span><span class="ss">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell" data-outputid="221fe21d-d1f8-4d85-baa2-17c16abd4010" data-execution_count="26">
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> time <span class="im">import</span> perf_counter</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>images, targets <span class="op">=</span> <span class="bu">next</span>(<span class="bu">iter</span>(data_loader_test))</span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>images <span class="op">=</span> <span class="bu">list</span>(img.to(torch.device(<span class="st">'cpu'</span>)) <span class="cf">for</span> img <span class="kw">in</span> images)</span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>n <span class="op">=</span> <span class="dv">10</span></span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a><span class="co"># warmup</span></span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> _ <span class="kw">in</span> <span class="bu">range</span>(n <span class="op">*</span> <span class="dv">3</span>):</span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a>    __ <span class="op">=</span> quant_rcnn_jit(images)</span>
+<span id="cb22-11"><a href="#cb22-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-12"><a href="#cb22-12" aria-hidden="true" tabindex="-1"></a>start <span class="op">=</span> perf_counter()</span>
+<span id="cb22-13"><a href="#cb22-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-14"><a href="#cb22-14" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> _ <span class="kw">in</span> <span class="bu">range</span>(n):</span>
+<span id="cb22-15"><a href="#cb22-15" aria-hidden="true" tabindex="-1"></a>    __ <span class="op">=</span> quant_rcnn_jit(images)</span>
+<span id="cb22-16"><a href="#cb22-16" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"quant jit model avg time: </span><span class="sc">{</span>(perf_counter() <span class="op">-</span> start) <span class="op">/</span> n<span class="sc">:.2f}</span><span class="ss">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>code/__torch__/torchvision/models/detection/faster_rcnn.py:103: UserWarning: RCNN always returns a (Losses, Detections) tuple in scripting</code></pre>
+</div>
 <div class="cell-output cell-output-stdout">
-<pre><code>quant model avg time: 1.15</code></pre>
+<pre><code>quant jit model avg time: 1.44</code></pre>
 </div>
 </div>
-<p>fxgraph mode quantization appears to be even faster than the quantized model using eager mode. the eager mode model had an average inference time of <code>1.42</code> and the float model <code>2.39</code> seconds.</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="co"># </span><span class="al">TODO</span><span class="co"> full train and inference on another image</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>fxgraph mode quantization has approximately the same inference time as eager mode as expected. the eager mode model had an average inference time of <code>1.42</code>.</p>
+<p>note that scripting changes the return signature and includes both losses in addition to detections:</p>
+<p><code>RCNN always returns a (Losses, Detections) tuple in scripting</code></p>
+<p>so you may have to modify post processing etc. to handle this change.</p>
+<div class="cell" data-outputid="eb7aea75-4ab9-42fe-99de-a9b5692155df" data-execution_count="52">
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torchvision.utils <span class="im">import</span> draw_bounding_boxes, draw_segmentation_masks</span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>image <span class="op">=</span> read_image(<span class="st">"PennFudanPed/PNGImages/FudanPed00007.png"</span>)</span>
+<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a>eval_transform <span class="op">=</span> get_transform(train<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-8"><a href="#cb25-8" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> torch.no_grad():</span>
+<span id="cb25-9"><a href="#cb25-9" aria-hidden="true" tabindex="-1"></a>    x <span class="op">=</span> eval_transform(image)</span>
+<span id="cb25-10"><a href="#cb25-10" aria-hidden="true" tabindex="-1"></a>    <span class="co"># convert RGBA -&gt; RGB and move to device</span></span>
+<span id="cb25-11"><a href="#cb25-11" aria-hidden="true" tabindex="-1"></a>    x <span class="op">=</span> x[:<span class="dv">3</span>, ...].to(torch.device(<span class="st">'cpu'</span>))</span>
+<span id="cb25-12"><a href="#cb25-12" aria-hidden="true" tabindex="-1"></a>    predictions <span class="op">=</span> quant_rcnn_jit([x, ])</span>
+<span id="cb25-13"><a href="#cb25-13" aria-hidden="true" tabindex="-1"></a>    pred <span class="op">=</span> predictions[<span class="dv">1</span>][<span class="dv">0</span>]  <span class="co"># JIT model returns tuple ({losses}, [pred_dicts])</span></span>
+<span id="cb25-14"><a href="#cb25-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-15"><a href="#cb25-15" aria-hidden="true" tabindex="-1"></a>threshold <span class="op">=</span> <span class="fl">0.50</span></span>
+<span id="cb25-16"><a href="#cb25-16" aria-hidden="true" tabindex="-1"></a>image <span class="op">=</span> (<span class="fl">255.0</span> <span class="op">*</span> (image <span class="op">-</span> image.<span class="bu">min</span>()) <span class="op">/</span> (image.<span class="bu">max</span>() <span class="op">-</span> image.<span class="bu">min</span>())).to(torch.uint8)</span>
+<span id="cb25-17"><a href="#cb25-17" aria-hidden="true" tabindex="-1"></a>image <span class="op">=</span> image[:<span class="dv">3</span>, ...]</span>
+<span id="cb25-18"><a href="#cb25-18" aria-hidden="true" tabindex="-1"></a>pred_labels <span class="op">=</span> [<span class="ss">f"pedestrian: </span><span class="sc">{</span>score<span class="sc">:.3f}</span><span class="ss">"</span> <span class="cf">for</span> label, score <span class="kw">in</span> <span class="bu">zip</span>(pred[<span class="st">"labels"</span>], pred[<span class="st">"scores"</span>]) <span class="cf">if</span> score <span class="op">&gt;</span> threshold]</span>
+<span id="cb25-19"><a href="#cb25-19" aria-hidden="true" tabindex="-1"></a>pred_boxes <span class="op">=</span> pred[<span class="st">"boxes"</span>].<span class="bu">long</span>()[pred[<span class="st">"scores"</span>] <span class="op">&gt;</span> threshold]</span>
+<span id="cb25-20"><a href="#cb25-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-21"><a href="#cb25-21" aria-hidden="true" tabindex="-1"></a>output_image <span class="op">=</span> draw_bounding_boxes(image, pred_boxes, pred_labels, colors<span class="op">=</span><span class="st">"red"</span>)</span>
+<span id="cb25-22"><a href="#cb25-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-23"><a href="#cb25-23" aria-hidden="true" tabindex="-1"></a>plt.figure(figsize<span class="op">=</span>(<span class="dv">12</span>, <span class="dv">12</span>))</span>
+<span id="cb25-24"><a href="#cb25-24" aria-hidden="true" tabindex="-1"></a>plt.imshow(output_image.permute(<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">0</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>code/__torch__/torchvision/models/detection/faster_rcnn/___torch_mangle_17.py:103: UserWarning: RCNN always returns a (Losses, Detections) tuple in scripting</code></pre>
 </div>
+<div class="cell-output cell-output-display" data-execution_count="52">
+<pre><code>&lt;matplotlib.image.AxesImage at 0x7db2e61c3220&gt;</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<p><img src="pytorch_fxgraph_qat_files/figure-html/cell-16-output-3.png" class="img-fluid"></p>
+</div>
+</div>
+<p>… did not have to modify network or insert stubs, fuse model, etc</p>
 
 
 
