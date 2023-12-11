@@ -180,10 +180,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 
 
-<p>Even though I’ve studied (and revisited, and revisited..) Bayesian statistics several times over the years, I always felt that it wasn’t an intuitive paradigm. In particular, the bridge from conditional probability to Bayes theorem, and then to Bayesian classifiers is something that I’ve had to refresh. So I created this post as a way to review that material and as a future reminder to myself. Here I’ll derive the classifier, touch on maximum a posteriori and maximum likelihood, show what it means to make a naive assumption, and analyze decision boundaries under different conditions.</p>
+<p>Even though I studied (and revisited, and revisited..) Bayesian statistics several times over the years, I’ve always felt that it wasn’t an intuitive paradigm. Specifically, the bridge from conditional probability and Bayes theorem to Bayesian classifiers is something I’ve had to refresh. I created this post as a future reference but also as an excuse to do an in-depth review. Here I’ll derive the classifier, touch on maximum a posteriori and maximum likelihood, show what it means to make a naive assumption, and analyze decision boundaries under different conditions.</p>
 <section id="maximum-a-posteriori" class="level3">
 <h3 class="anchored" data-anchor-id="maximum-a-posteriori">maximum a posteriori</h3>
-<p>Let’s assume there is a random variable <span class="math inline">\(X\)</span> that follows a Gaussian distribution</p>
+<p>Let’s assume we have some data <span class="math inline">\(X\)</span> that follows a Gaussian distribution</p>
 <p><span class="math display">\[
 X \sim N(\mu, \sigma)
 \]</span></p>
@@ -237,13 +237,13 @@ p(y) = \frac{1}{n}\sum_{i}^{n} \mathbb{1}(y_i = y)
 <p><span class="math display">\[
 \arg\max_y {P(X|Y)}
 \]</span></p>
-<p>but this ignores the prior distribution if we have that information.</p>
+<p>but this ignores the prior distribution if we have that information. So if the prior is available, then it’s advantageous to use it.</p>
 <p>With some basic theory out of the way, let’s build a classifer.</p>
 </section>
 <section id="univariate-classifier" class="level3">
 <h3 class="anchored" data-anchor-id="univariate-classifier">univariate classifier</h3>
 <p>Let’s simulate univariate Gaussian data for two classes. For simplicity, the data will have different means but the same variance.</p>
-<div class="cell" data-execution_count="1">
+<div class="cell">
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> matplotlib <span class="im">import</span> pyplot <span class="im">as</span> plt</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> seaborn <span class="im">as</span> sns</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
@@ -252,7 +252,7 @@ p(y) = \frac{1}{n}\sum_{i}^{n} \mathbb{1}(y_i = y)
 <span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>sns.<span class="bu">set</span>()</span>
 <span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="op">%</span>matplotlib inline</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-outputid="53ce2bc2-b339-4a0a-a6d0-abb5c0f156a3" data-execution_count="2">
+<div class="cell" data-outputid="53ce2bc2-b339-4a0a-a6d0-abb5c0f156a3">
 <div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>n <span class="op">=</span> <span class="dv">1000</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>mu_1 <span class="op">=</span> <span class="dv">40</span></span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>mu_2 <span class="op">=</span> <span class="dv">80</span></span>
@@ -270,21 +270,21 @@ p(y) = \frac{1}{n}\sum_{i}^{n} \mathbb{1}(y_i = y)
 </div>
 </div>
 <p>Time to estimate priors, means, and standard deviations. This is trivial since we generated the data but let’s pretend that we didn’t :)</p>
-<div class="cell" data-outputid="33ff8a7e-31f4-40f8-d372-242e090b06bc" data-execution_count="3">
+<div class="cell" data-outputid="33ff8a7e-31f4-40f8-d372-242e090b06bc">
 <div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>priors <span class="op">=</span> {k: df[df.y <span class="op">==</span> k].size <span class="op">/</span> df.size <span class="cf">for</span> k <span class="kw">in</span> df.y.unique()}</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>priors</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display" data-execution_count="3">
 <pre><code>{1: 0.5, 2: 0.5}</code></pre>
 </div>
 </div>
-<div class="cell" data-outputid="1de6e2b6-40bc-4b3e-9680-cdbed1fb2575" data-execution_count="4">
+<div class="cell" data-outputid="1de6e2b6-40bc-4b3e-9680-cdbed1fb2575">
 <div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>means <span class="op">=</span> {k: df[df.y <span class="op">==</span> k].x.mean() <span class="cf">for</span> k <span class="kw">in</span> df.y.unique()}</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>means</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display" data-execution_count="4">
 <pre><code>{1: 39.81007946653686, 2: 79.64703348340272}</code></pre>
 </div>
 </div>
-<div class="cell" data-outputid="6ea0f2ee-f8cf-41dd-e973-6e421dd897eb" data-execution_count="5">
+<div class="cell" data-outputid="6ea0f2ee-f8cf-41dd-e973-6e421dd897eb">
 <div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>stdevs <span class="op">=</span> {k: df[df.y <span class="op">==</span> k].x.std() <span class="cf">for</span> k <span class="kw">in</span> df.y.unique()}</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="co"># .std(ddof=0) if not sample</span></span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>stdevs</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
@@ -293,7 +293,7 @@ p(y) = \frac{1}{n}\sum_{i}^{n} \mathbb{1}(y_i = y)
 </div>
 </div>
 <p>Now that the data is fit, we can build a classifier and predict new instances.</p>
-<div class="cell" data-execution_count="6">
+<div class="cell">
 <div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co"># note: scipy actually has gaussian pdf: from scipy.stats import norm</span></span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> uni_gaussian_pdf(x, mean, stdev):</span>
@@ -317,7 +317,7 @@ p(y) = \frac{1}{n}\sum_{i}^{n} \mathbb{1}(y_i = y)
 \]</span></p>
 <p>So in the case where priors are the same, the MAP is equivalent to the MLE.</p>
 <p>And now to visualize the decision boundary.</p>
-<div class="cell" data-outputid="6e0a9c1c-3987-4590-c979-c3b2071b7184" data-execution_count="7">
+<div class="cell" data-outputid="6e0a9c1c-3987-4590-c979-c3b2071b7184">
 <div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>sim_data <span class="op">=</span> np.arange(<span class="dv">0</span>, <span class="dv">150</span>, <span class="dv">1</span>)  <span class="co"># uniform sequence</span></span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>sim_class_preds <span class="op">=</span> [gbayes_uni_classify(x) <span class="cf">for</span> x <span class="kw">in</span> sim_data]</span>
 <span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -335,7 +335,7 @@ p(y) = \frac{1}{n}\sum_{i}^{n} \mathbb{1}(y_i = y)
 </div>
 </div>
 <p>No surprises here, the decision boundary is roughly halfway between means, as expected. Let’s make things more interesting and make the variances unequal…</p>
-<div class="cell" data-outputid="5cfd5ccd-8cf9-452c-c51e-e35e19b16295" data-execution_count="8">
+<div class="cell" data-outputid="5cfd5ccd-8cf9-452c-c51e-e35e19b16295">
 <div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> gen_uni_dists_df(n1, n2, mu1, mu2, std1, std2):</span>
 <span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>    x1 <span class="op">=</span> np.random.normal(loc<span class="op">=</span>mu1, scale<span class="op">=</span>std1, size<span class="op">=</span>n1)</span>
 <span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>    x2 <span class="op">=</span> np.random.normal(loc<span class="op">=</span>mu2, scale<span class="op">=</span>std2, size<span class="op">=</span>n2)</span>
@@ -348,7 +348,7 @@ p(y) = \frac{1}{n}\sum_{i}^{n} \mathbb{1}(y_i = y)
 <p><img src="gaussian_bayes_classifier_files/figure-html/cell-9-output-1.png" class="img-fluid"></p>
 </div>
 </div>
-<div class="cell" data-execution_count="11">
+<div class="cell">
 <div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> GBUniClf:</span>
 <span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>):</span>
@@ -375,7 +375,7 @@ p(y) = \frac{1}{n}\sum_{i}^{n} \mathbb{1}(y_i = y)
 <span id="cb13-24"><a href="#cb13-24" aria-hidden="true" tabindex="-1"></a>            probas.append(likelihood <span class="op">*</span> <span class="va">self</span>.priors[c])</span>
 <span id="cb13-25"><a href="#cb13-25" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">self</span>.classes[np.argmax(probas)]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-outputid="4daf5128-cf5c-4ca9-b289-0f445f02d60f" data-execution_count="10">
+<div class="cell" data-outputid="4daf5128-cf5c-4ca9-b289-0f445f02d60f">
 <div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> uni_decision_boundary(clf, df, sim_range):</span>
 <span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>    sim_class_preds <span class="op">=</span> [clf.predict(x) <span class="cf">for</span> x <span class="kw">in</span> sim_range]</span>
@@ -406,7 +406,7 @@ p(y) = \frac{1}{n}\sum_{i}^{n} \mathbb{1}(y_i = y)
 </div>
 <p>Because class 1 has a larger variance, there is now a second decision boundary. Instances with high values of <span class="math inline">\(x\)</span> (far right) are less likely to belong to class 2 even though they are closer to its’ mean. Instead they get classified as 1.</p>
 <p>What if the priors are different?</p>
-<div class="cell" data-outputid="260e399a-30a1-412c-ff2e-096f950bf5d0" data-execution_count="12">
+<div class="cell" data-outputid="260e399a-30a1-412c-ff2e-096f950bf5d0">
 <div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>df <span class="op">=</span> gen_uni_dists_df(n1<span class="op">=</span><span class="dv">2000</span>, n2<span class="op">=</span><span class="dv">500</span>, mu1<span class="op">=</span><span class="dv">40</span>, mu2<span class="op">=</span><span class="dv">80</span>, std1<span class="op">=</span><span class="dv">20</span>, std2<span class="op">=</span><span class="dv">10</span>)</span>
 <span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>clf <span class="op">=</span> GBUniClf()</span>
@@ -439,7 +439,7 @@ P(Y|X) = P(Y|x_1, x_2, \ldots , x_i)
 p(x|y) = \frac{1}{\sqrt{(2\pi)^n |\Sigma_y|}} e^{ - \frac{1}{2} (x - \mu_y)^T \Sigma_y^{-1} (x - \mu_y)}
 \]</span></p>
 <p>This is a drop-in replacement though, and the rest of the classifier is the same.</p>
-<div class="cell" data-outputid="cf761abd-aa98-474b-bc3e-2a2751adcd80" data-execution_count="20">
+<div class="cell" data-outputid="cf761abd-aa98-474b-bc3e-2a2751adcd80">
 <div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> gen_bi_dists_df(n1, n2, mu1, mu2, std1, std2):</span>
 <span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>    x1 <span class="op">=</span> np.random.normal(loc<span class="op">=</span>mu1, scale<span class="op">=</span>std1, size<span class="op">=</span>(n1, <span class="dv">2</span>))</span>
 <span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>    x2 <span class="op">=</span> np.random.normal(loc<span class="op">=</span>mu2, scale<span class="op">=</span>std2, size<span class="op">=</span>(n2, <span class="dv">2</span>))</span>
@@ -455,7 +455,7 @@ p(x|y) = \frac{1}{\sqrt{(2\pi)^n |\Sigma_y|}} e^{ - \frac{1}{2} (x - \mu_y)^T \S
 <p><img src="gaussian_bayes_classifier_files/figure-html/cell-13-output-1.png" class="img-fluid"></p>
 </div>
 </div>
-<div class="cell" data-execution_count="21">
+<div class="cell">
 <div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> GBBiClf:</span>
 <span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>):</span>
@@ -487,7 +487,7 @@ p(x|y) = \frac{1}{\sqrt{(2\pi)^n |\Sigma_y|}} e^{ - \frac{1}{2} (x - \mu_y)^T \S
 <span id="cb19-29"><a href="#cb19-29" aria-hidden="true" tabindex="-1"></a>            probas.append(likelihood <span class="op">*</span> <span class="va">self</span>.priors[c])</span>
 <span id="cb19-30"><a href="#cb19-30" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">self</span>.classes[np.argmax(probas)]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-outputid="f4190e2a-99a9-4433-ffd8-a30e664478dc" data-execution_count="22">
+<div class="cell" data-outputid="f4190e2a-99a9-4433-ffd8-a30e664478dc">
 <div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> bi_decision_boundary(clf, df, sim_range):</span>
 <span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>    sim_data <span class="op">=</span> np.array([np.array([x1, x2]) <span class="cf">for</span> x1 <span class="kw">in</span> sim_range <span class="cf">for</span> x2 <span class="kw">in</span> sim_range])</span>
@@ -516,7 +516,7 @@ p(x|y) = \frac{1}{\sqrt{(2\pi)^n |\Sigma_y|}} e^{ - \frac{1}{2} (x - \mu_y)^T \S
 </div>
 </div>
 <p>The variance was same for both distributions and the features were sampled independently, so the decision boundary isn’t complex. Slight curvature is due to the estimate of covariance which is different from the true value.</p>
-<div class="cell" data-outputid="c831ac48-6eff-4883-ff42-526eb90a969c" data-execution_count="23">
+<div class="cell" data-outputid="c831ac48-6eff-4883-ff42-526eb90a969c">
 <div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>clf.covars</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display" data-execution_count="23">
 <pre><code>{1: array([[100.87705238,  -3.73052293],
@@ -534,7 +534,7 @@ P(X|Y) = P(x_1, x_2, \ldots , x_i|Y) = \prod\limits_{i}P(x_i|Y)
 \arg\max_y {P(Y) \cdot P(x_1|Y) \cdot P(x_2|Y) \cdot \ldots \cdot P(x_m|Y)}
 \]</span></p>
 <p>For this case though, since the features were generated independently, the decision boundary should be roughly the same.</p>
-<div class="cell" data-execution_count="24">
+<div class="cell">
 <div class="sourceCode cell-code" id="cb24"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> GNBBiClf:</span>
 <span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>):</span>
@@ -563,7 +563,7 @@ P(X|Y) = P(x_1, x_2, \ldots , x_i|Y) = \prod\limits_{i}P(x_i|Y)
 <span id="cb24-26"><a href="#cb24-26" aria-hidden="true" tabindex="-1"></a>            probas.append(joint_likelihood <span class="op">*</span> <span class="va">self</span>.priors[c])</span>
 <span id="cb24-27"><a href="#cb24-27" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">self</span>.classes[np.argmax(probas)]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-outputid="2fc47944-7f12-4648-d09c-2f7619c26e99" data-execution_count="25">
+<div class="cell" data-outputid="2fc47944-7f12-4648-d09c-2f7619c26e99">
 <div class="sourceCode cell-code" id="cb25"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>clf <span class="op">=</span> GNBBiClf()</span>
 <span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>clf.fit(df)</span>
 <span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -577,7 +577,7 @@ P(X|Y) = P(x_1, x_2, \ldots , x_i|Y) = \prod\limits_{i}P(x_i|Y)
 </div>
 </div>
 <p>What if just the covariance are different? Let’s draw random data were the features are still independent (i.e.&nbsp;covariance matrix is symmetic) but the variance of features is different for each class.</p>
-<div class="cell" data-outputid="5d633f73-10b7-4642-e2da-023f4615125d" data-execution_count="26">
+<div class="cell" data-outputid="5d633f73-10b7-4642-e2da-023f4615125d">
 <div class="sourceCode cell-code" id="cb27"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a>df <span class="op">=</span> gen_bi_dists_df(n1<span class="op">=</span><span class="dv">1000</span>, n2<span class="op">=</span><span class="dv">1000</span>, mu1<span class="op">=</span><span class="dv">40</span>, mu2<span class="op">=</span><span class="dv">100</span>, std1<span class="op">=</span><span class="dv">20</span>, std2<span class="op">=</span><span class="dv">10</span>)</span>
 <span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>clf <span class="op">=</span> GBBiClf()</span>
@@ -594,7 +594,7 @@ P(X|Y) = P(x_1, x_2, \ldots , x_i|Y) = \prod\limits_{i}P(x_i|Y)
 </div>
 </div>
 <p>As expected, the decision boundary favors class 1 since it had larger variance. Without any correlation between features, I would again expect the decision boundary to be the same for the naive classifier.</p>
-<div class="cell" data-outputid="ea56f204-9fd2-4ad5-c650-df66e3153057" data-execution_count="33">
+<div class="cell" data-outputid="ea56f204-9fd2-4ad5-c650-df66e3153057">
 <div class="sourceCode cell-code" id="cb29"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a>clf <span class="op">=</span> GNBBiClf()</span>
 <span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>clf.fit(df)</span>
 <span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a><span class="co"># sanity check</span></span>
@@ -613,7 +613,7 @@ P(X|Y) = P(x_1, x_2, \ldots , x_i|Y) = \prod\limits_{i}P(x_i|Y)
 </div>
 <p>The decision boundary for the naive classifier is roughly identical. Zooming out, we can see the classifier has similar behavior as the univariate case for different variance.</p>
 <p>Let’s finally simulate data with correlation between features. There should be a noticeable difference in the decision boundary for the naive classifier.</p>
-<div class="cell" data-outputid="1a81f63e-d10f-4882-e459-7db32b87b8c3" data-execution_count="34">
+<div class="cell" data-outputid="1a81f63e-d10f-4882-e459-7db32b87b8c3">
 <div class="sourceCode cell-code" id="cb31"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a>n <span class="op">=</span> <span class="dv">1000</span></span>
 <span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>mu_1 <span class="op">=</span> <span class="dv">40</span></span>
 <span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>mu_2 <span class="op">=</span> <span class="dv">100</span></span>
@@ -634,7 +634,7 @@ P(X|Y) = P(x_1, x_2, \ldots , x_i|Y) = \prod\limits_{i}P(x_i|Y)
 <p><img src="gaussian_bayes_classifier_files/figure-html/cell-21-output-2.png" class="img-fluid"></p>
 </div>
 </div>
-<div class="cell" data-outputid="6e7360ed-6a30-4024-8a91-5ef138d9ae84" data-execution_count="35">
+<div class="cell" data-outputid="6e7360ed-6a30-4024-8a91-5ef138d9ae84">
 <div class="sourceCode cell-code" id="cb33"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a>clf <span class="op">=</span> GBBiClf()</span>
 <span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a>clf.fit(df)</span>
 <span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -648,7 +648,7 @@ P(X|Y) = P(x_1, x_2, \ldots , x_i|Y) = \prod\limits_{i}P(x_i|Y)
 <p><img src="gaussian_bayes_classifier_files/figure-html/cell-22-output-2.png" class="img-fluid"></p>
 </div>
 </div>
-<div class="cell" data-outputid="f10524a3-340b-4b92-95f3-7ad1aa6223f4" data-execution_count="36">
+<div class="cell" data-outputid="f10524a3-340b-4b92-95f3-7ad1aa6223f4">
 <div class="sourceCode cell-code" id="cb35"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="co"># naive classifier</span></span>
 <span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a>clf <span class="op">=</span> GNBBiClf()</span>
 <span id="cb35-3"><a href="#cb35-3" aria-hidden="true" tabindex="-1"></a>clf.fit(df)</span>
@@ -663,8 +663,8 @@ P(X|Y) = P(x_1, x_2, \ldots , x_i|Y) = \prod\limits_{i}P(x_i|Y)
 <p><img src="gaussian_bayes_classifier_files/figure-html/cell-23-output-2.png" class="img-fluid"></p>
 </div>
 </div>
-<p>The difference between the naive and non-naive classifier is more noticeable when there is correlation between features (class 1). The naive classifier clearly ignores the covariance and the decision boundary is much smoother.</p>
-<p>One obvious advantage of the naive assumption is computational efficiency. Predictions for the naive classifier ran in faster time compared to the non-naive by an order of magnitude. Fit times were roughly the same.</p>
+<p>The difference between the naive and non-naive classifier is more noticeable when there is correlation between features (class 1). The naive classifier clearly ignores covariance and the decision boundary is much smoother.</p>
+<p>One advantage of the naive assumption is computational efficiency. Each feature is treated independently and there is no need to do matrix multiplication with the covariance matrix. As a result, predictions for the naive classifier ran in faster time compared to non-naive by an order of magnitude.</p>
 <div class="cell" data-outputid="8625196d-c15d-4ebe-c165-5faa6094133a">
 <div class="sourceCode cell-code" id="cb37"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> time <span class="im">import</span> perf_counter</span>
 <span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a></span>

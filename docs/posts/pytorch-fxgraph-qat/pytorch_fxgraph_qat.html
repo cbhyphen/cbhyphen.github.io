@@ -178,17 +178,26 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 
 
-<p>in this post I’ll be using pytorch’s FX graph mode quantization to quantize an R-CNN. in the <a href="https://cbhyphen.github.io/posts/pytorch-eager-qat/pytorch_eager_qat.html">previous post</a>, I used eager mode quantization which resulted in model compression as well as latency gains compared to the same model on CPU. there are significant differences between the two quantization methods and each has pros and cons. so here I will touch on those differences as well as demonstrate how to quantize using FX graph mode.</p>
-<p>at the time of writing this FX graph mode quantization is still a prototype feature. this means that it’s not as mature as eager mode which is a beta feature, although there does appear to be more effort on graphfx and it’s even <a href="https://pytorch.org/docs/stable/quantization.html#quantization-api-summary">encouraged over eager mode</a> for first time users.</p>
-<p>one major difference is that FX graph requires the network to be <a href="https://pytorch.org/tutorials/prototype/fx_graph_mode_quant_guide.html">symbolically traceable</a>. this requirement can result in <a href="https://ppwwyyxx.com/blog/2022/TorchScript-Tracing-vs-Scripting/#Recommendation">hacky modifications</a> to code in the network that would otherwise be unnecessary and users have complained about this <a href="https://github.com/pytorch/pytorch/issues/48108">complained about this</a>.</p>
-<p>according to documentation, the biggest advantages of FX graph mode quantization are:</p>
+<p>Following up on the <a href="https://cbhyphen.github.io/posts/pytorch-eager-qat/pytorch_eager_qat.html">last post</a> I did about eager mode quantization in pytorch, in this post I’ll be using pytorch’s FX graph mode quantization to quantize the same R-CNN. There are significant differences between the two quantization methods and here I will touch on those as well as demonstrate how to quantize using FX graph mode.</p>
+<p>At the time of writing this, FX graph mode quantization is still a prototype feature. It’s not quite as mature as eager mode which is currently a beta feature. Although there does appear to be more effort on FX graph mode and it’s even <a href="https://pytorch.org/docs/stable/quantization.html#quantization-api-summary">encouraged over eager mode</a> for first time users.</p>
+<section id="symbolic-tracing" class="level3">
+<h3 class="anchored" data-anchor-id="symbolic-tracing">Symbolic Tracing</h3>
+<p>FX graph mode quantization requires the network to be <a href="https://pytorch.org/tutorials/prototype/fx_graph_mode_quant_guide.html">symbolically traceable</a>. Under the hood, PyTorch converts the <code>nn.Module</code> network to an alternative format they often refer to as an internal representation (IR). You can imagine that this IR would need to be an accurate and consistent representation of the network regardless of the data flowing through it. So, any parts of the network that have data dependent control flow aren’t supported. Note that the approach taken with FX graph mode can apparently result in <a href="https://ppwwyyxx.com/blog/2022/TorchScript-Tracing-vs-Scripting/#Recommendation">hacky modifications</a> to code in the network that would otherwise be unnecessary. Users have complained about it <a href="https://github.com/pytorch/pytorch/issues/48108">complained about this</a> and it’s something to keep in mind when considering this method.</p>
+</section>
+<section id="automation" class="level3">
+<h3 class="anchored" data-anchor-id="automation">Automation</h3>
+<p>Once your network is symbolically traceable, you’ll be in for a treat compared to eager mode. The biggest advantages of FX graph mode quantization are:</p>
 <ul>
 <li>module fusion occurs automatically, something that could otherwise be tedious or error prone depending upon the complexity and size of your network</li>
-<li>functionals and torch ops also get converted automagically. in this case that means no need to modify the bottleneck block to use float functional as done in the last post</li>
+<li>functionals and torch ops also get converted automagically. In this case that means no need to modify the bottleneck block to use float functional as done in the previous post</li>
 <li>no requirement to insert quant/dequant stubs in the network which means you can avoid creating those additional wrapper classes</li>
 </ul>
-<p>with that out of the way, let’s dive into FX graph and QAT. as before, we’ll start with creating the resnet backbone but without having to modify the bottleneck to use float functional operator.</p>
-<div class="cell" data-execution_count="43">
+<p>Significant time and effort was invested in doing the above with eager mode. Assuming that getting your network to a symbolically traceable state isn’t more of a time sink, FX graph mode can be a better choice.</p>
+</section>
+<section id="verification-and-model-preparation" class="level3">
+<h3 class="anchored" data-anchor-id="verification-and-model-preparation">Verification and Model Preparation</h3>
+<p>With that out of the way, let’s dive into FX graph and QAT. As before, we’ll start with creating the resnet backbone but without having to modify the bottleneck to use float functional operator.</p>
+<div class="cell">
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torchvision.models.resnet <span class="im">import</span> ResNet, Bottleneck, ResNet101_Weights</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -201,7 +210,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>resnet <span class="op">=</span> resnet_101()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>at this point, the resnet is fully traceable. <a href="https://pytorch.org/docs/stable/generated/torch.jit.trace.html">tracing it with an example input</a> will return a <code>ScriptModule</code> which can be used to get a <a href="https://pytorch.org/docs/stable/generated/torch.jit.ScriptModule.html#torch.jit.ScriptModule.code">representation of graph’s forward method</a>.</p>
+<p>At this point the resnet is fully traceable. <a href="https://pytorch.org/docs/stable/generated/torch.jit.trace.html">Tracing it with an example input</a> will return a <code>ScriptModule</code> which can be used to get a <a href="https://pytorch.org/docs/stable/generated/torch.jit.ScriptModule.html#torch.jit.ScriptModule.code">representation of graph’s forward method</a>.</p>
 <div class="cell" data-outputid="da5e316c-f773-4315-d845-17d08823d147">
 <div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>traced_module <span class="op">=</span> torch.jit.trace(resnet, torch.rand(<span class="dv">1</span>, <span class="dv">3</span>, <span class="dv">200</span>, <span class="dv">200</span>))</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(traced_module.code)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
@@ -227,8 +236,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </code></pre>
 </div>
 </div>
-<p>same as the eager mode preparation, the next step is to use torchvision’s helper method <code>IntermediateLayerGetter</code> to extract layer outputs from the resnet to feed to the FPN.</p>
-<div class="cell" data-execution_count="44">
+<p>Just as was done during eager mode preparation, the next step is to use torchvision’s helper method <code>IntermediateLayerGetter</code> to extract layer outputs from the resnet to feed to the FPN.</p>
+<div class="cell">
 <div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torchvision.models._utils <span class="im">import</span> IntermediateLayerGetter</span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -236,11 +245,11 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>return_layers <span class="op">=</span> {<span class="ss">f"layer</span><span class="sc">{</span>k<span class="sc">}</span><span class="ss">"</span>: <span class="bu">str</span>(v) <span class="cf">for</span> v, k <span class="kw">in</span> <span class="bu">enumerate</span>(returned_layers)}</span>
 <span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>resnet_layers <span class="op">=</span> IntermediateLayerGetter(resnet, return_layers<span class="op">=</span>return_layers)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>the result of the layer getter is a module dict which returns an ordered dict from its forward method. if we attempt to trace using strict mode, JIT will complain because of the mutable output type</p>
+<p>As we saw before, the result of the layer getter is a module dict which returns an ordered dict from its forward method. If we attempt to trace using strict mode, JIT will complain because of the mutable output type:</p>
 <pre><code>AttributeError
 ...
 AttributeError: expected a dictionary of (method_name, input) pairs</code></pre>
-<p>this can be ignored if we <a href="https://pytorch.org/docs/master/generated/torch.jit.trace.html">“are sure that the container you are using in your problem is a constant structure and does not get used as control flow (if, for) conditions.”</a> since we know that the output won’t change we can safely ignore this and set <code>strict=False</code>. note that this isn’t necessary for QAT preparation but it’s helpful to know apriori if the parts of the model that we intend to quantize are indeed traceable.</p>
+<p>This can be ignored if we <a href="https://pytorch.org/docs/master/generated/torch.jit.trace.html">“are sure that the container you are using in your problem is a constant structure and does not get used as control flow (if, for) conditions.”</a> Since we know the output won’t change, we can safely ignore this and set <code>strict=False</code>. Note that this isn’t necessary for QAT preparation but it’s helpful to know apriori if the parts of the model that we intend to quantize are indeed traceable.</p>
 <div class="cell" data-outputid="806bf3e8-6a87-43c2-a2c8-e0beb6f8b677">
 <div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>traced_module <span class="op">=</span> torch.jit.trace(resnet_layers, torch.rand(<span class="dv">1</span>, <span class="dv">3</span>, <span class="dv">200</span>, <span class="dv">200</span>), strict<span class="op">=</span><span class="va">False</span>)</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(traced_module.code)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
@@ -264,9 +273,9 @@ AttributeError: expected a dictionary of (method_name, input) pairs</code></pre>
 </code></pre>
 </div>
 </div>
-<p>as before, create the backbone with FPN, however this time without any modifications. after this, the module can be traced. because the output is a mutable type (ordered dict) but it’s structure will not change, strict mode needs to be set to false. note that if you don’t, there is a slightly different error (shown below) but the reason is the same.</p>
+<p>Now to create the backbone with FPN, however this time without any modifications. After this, the module can be traced. Because the output is a mutable type (ordered dict) and it’s structure will not change, strict mode needs to be set to false. If you don’t, there is a slightly different error (shown below) but the reason is the same.</p>
 <pre><code>RuntimeError: Encountering a dict at the output of the tracer might cause the trace to be incorrect, this is only valid if the container structure does not change based on the module's inputs. Consider using a constant container instead (e.g. for `list`, use a `tuple` instead. for `dict`, use a `NamedTuple` instead). If you absolutely need this and know the side effects, pass strict=False to trace() to allow this behavior.</code></pre>
-<div class="cell" data-execution_count="45">
+<div class="cell">
 <div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torchvision.models.detection.backbone_utils <span class="im">import</span> BackboneWithFPN</span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -298,7 +307,7 @@ AttributeError: expected a dictionary of (method_name, input) pairs</code></pre>
 </code></pre>
 </div>
 </div>
-<p>now that we’ve verified the backbone with FPN is indeed traceable, we can create the R-CNN and prepare the model for QAT. during preparation, FX graph mode will automatically insert observers and fuse modules. the returned model is also now graph module.</p>
+<p>We’ve verified the backbone with FPN is indeed traceable. So now we can create the R-CNN and prepare the model for QAT. During preparation, FX graph mode will automatically insert observers and fuse modules. The returned model is also now graph module and looks something like:</p>
 <pre><code>GraphModule(
   (activation_post_process_0): HistogramObserver(min_val=inf, max_val=-inf)
   (body): Module(
@@ -320,8 +329,8 @@ AttributeError: expected a dictionary of (method_name, input) pairs</code></pre>
           (bn): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
           (weight_fake_quant): PerChannelMinMaxObserver(min_val=tensor([]), max_val=tensor([]))
           ...</code></pre>
-<p>note that preparation now <a href="https://pytorch.org/docs/stable/generated/torch.ao.quantization.quantize_fx.prepare_qat_fx.html">requires an example input to determine the output types</a>. as before, I’ll freeze the first layer as well as batch norm stats</p>
-<div class="cell" data-execution_count="46">
+<p>Note that preparation now <a href="https://pytorch.org/docs/stable/generated/torch.ao.quantization.quantize_fx.prepare_qat_fx.html">requires an example input to determine the output types</a>. As before, I’ll freeze the first layer along with batch norm stats.</p>
+<div class="cell">
 <div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="op">%%</span>capture</span>
 <span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> re</span>
 <span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torchvision.models.detection.faster_rcnn <span class="im">import</span> FasterRCNN</span>
@@ -342,8 +351,11 @@ AttributeError: expected a dictionary of (method_name, input) pairs</code></pre>
 <span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> re.search(<span class="vs">r"body.conv1"</span>, name) <span class="kw">or</span> re.search(<span class="vs">r"body.layer1"</span>, name):</span>
 <span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a>        parameter.requires_grad <span class="op">=</span> <span class="va">False</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>as in the previous post, I’ll use the PennFudan dataset from the Torchvision object detection finetuning tutorial…</p>
-<div class="cell" data-execution_count="47">
+</section>
+<section id="qat-and-model-conversion" class="level3">
+<h3 class="anchored" data-anchor-id="qat-and-model-conversion">QAT and Model Conversion</h3>
+<p>As in the previous post, I’ll use the PennFudan dataset from the Torchvision object detection finetuning tutorial.</p>
+<div class="cell">
 <div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
 <span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torchvision.io <span class="im">import</span> read_image</span>
@@ -417,7 +429,7 @@ AttributeError: expected a dictionary of (method_name, input) pairs</code></pre>
 <span id="cb14-71"><a href="#cb14-71" aria-hidden="true" tabindex="-1"></a>    transforms.append(T.ToPureTensor())</span>
 <span id="cb14-72"><a href="#cb14-72" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> T.Compose(transforms)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-execution_count="6">
+<div class="cell">
 <div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="op">%%</span>capture</span>
 <span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>os.system(<span class="st">"wget https://raw.githubusercontent.com/pytorch/vision/main/references/detection/engine.py"</span>)</span>
@@ -429,7 +441,7 @@ AttributeError: expected a dictionary of (method_name, input) pairs</code></pre>
 <span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a><span class="op">!</span>wget https:<span class="op">//</span>www.cis.upenn.edu<span class="op">/~</span>jshi<span class="op">/</span>ped_html<span class="op">/</span>PennFudanPed.<span class="bu">zip</span></span>
 <span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a><span class="op">!</span>unzip PennFudanPed.<span class="bu">zip</span> <span class="op">-</span>d .<span class="op">/</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-execution_count="48">
+<div class="cell">
 <div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> utils</span>
 <span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> engine <span class="im">import</span> train_one_epoch, evaluate</span>
 <span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -465,7 +477,7 @@ AttributeError: expected a dictionary of (method_name, input) pairs</code></pre>
 <span id="cb16-33"><a href="#cb16-33" aria-hidden="true" tabindex="-1"></a>    collate_fn<span class="op">=</span>utils.collate_fn</span>
 <span id="cb16-34"><a href="#cb16-34" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-outputid="1b22ca63-e094-4112-d151-3441e32fe732" data-execution_count="49">
+<div class="cell" data-outputid="1b22ca63-e094-4112-d151-3441e32fe732">
 <div class="sourceCode cell-code" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co"># move model to the right device</span></span>
 <span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>quant_rcnn.to(device)</span>
 <span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -788,13 +800,13 @@ IoU metric: bbox
  Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.691</code></pre>
 </div>
 </div>
-<div class="cell" data-execution_count="50">
+<div class="cell">
 <div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="co"># convert to quantized</span></span>
 <span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>quant_rcnn.to(torch.device(<span class="st">'cpu'</span>))</span>
 <span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>quant_rcnn.<span class="bu">eval</span>()</span>
 <span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>quant_rcnn.backbone <span class="op">=</span> quantize_fx.convert_fx(quant_rcnn.backbone)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>because the model is symbolically traceable, we can save it as a torch script. this has the advantage that it is has no torch dependencies and we don’t need to instantiate the model and load the state dict as done with eager mode. this decouples model creation with usage as long as input types are known. the graph module is also now a recursive script module</p>
+<p>In the previous post, I saved the state dict of the model. This was a bit cumbersome when re-loading as I had to reinstantiate the model and perform conversion again before I could load the state dict. So here I’ll save it as a torch script which doesn’t have a class definition dependency nor does it require the same conversion steps. This is great because it decouples model creation with usage as long as input/output signatures are known. Once the model is saved, it becomes a recursive script module:</p>
 <pre><code>RecursiveScriptModule(
   original_name=FasterRCNN
   (transform): RecursiveScriptModule(original_name=GeneralizedRCNNTransform)
@@ -817,13 +829,13 @@ IoU metric: bbox
           )
         )
         ...</code></pre>
-<div class="cell" data-execution_count="51">
+<div class="cell">
 <div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>script_module <span class="op">=</span> torch.jit.script(quant_rcnn)</span>
 <span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>script_module.save(<span class="st">"./quant_rcnn_torchscript.pt"</span>)</span>
 <span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>quant_rcnn_jit <span class="op">=</span> torch.jit.load(<span class="st">"./quant_rcnn_torchscript.pt"</span>, map_location<span class="op">=</span>torch.device(<span class="st">'cpu'</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-outputid="221fe21d-d1f8-4d85-baa2-17c16abd4010" data-execution_count="26">
+<div class="cell" data-outputid="221fe21d-d1f8-4d85-baa2-17c16abd4010">
 <div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> time <span class="im">import</span> perf_counter</span>
 <span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -847,11 +859,9 @@ IoU metric: bbox
 <pre><code>quant jit model avg time: 1.44</code></pre>
 </div>
 </div>
-<p>fxgraph mode quantization has approximately the same inference time as eager mode as expected. the eager mode model had an average inference time of <code>1.42</code>.</p>
-<p>note that scripting changes the return signature and includes both losses in addition to detections:</p>
-<p><code>RCNN always returns a (Losses, Detections) tuple in scripting</code></p>
-<p>so you may have to modify post processing etc. to handle this change.</p>
-<div class="cell" data-outputid="eb7aea75-4ab9-42fe-99de-a9b5692155df" data-execution_count="52">
+<p>As expected, FX graph mode quantization has about the same inference time as eager. The eager mode model had an average inference time of <code>1.42</code>.</p>
+<p>Note the <code>UserWarning</code> above. Scripting changes the return signature to includes losses in addition to the normal prediction output. I’m not sure if this applies to other models but at least there is a warning so we know to modify any post processing etc. to handle this change.</p>
+<div class="cell" data-outputid="eb7aea75-4ab9-42fe-99de-a9b5692155df">
 <div class="sourceCode cell-code" id="cb25"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
 <span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torchvision.utils <span class="im">import</span> draw_bounding_boxes, draw_segmentation_masks</span>
 <span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -886,9 +896,10 @@ IoU metric: bbox
 <p><img src="pytorch_fxgraph_qat_files/figure-html/cell-16-output-3.png" class="img-fluid"></p>
 </div>
 </div>
-<p>… did not have to modify network or insert stubs, fuse model, etc</p>
+<p>FX graph mode quantization made for much easier model preparation compared to eager mode. We did not have to modify network, insert stubs, or even fuse modules. However, because of the symbolic tracing requirement, more complex networks with data dependent control flow may not be able to use it.</p>
 
 
+</section>
 
 </main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
