@@ -178,7 +178,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 
 <p>It’s pretty difficult to escape recommender systems in 2024. These days, we regularly get recommended content from streaming services like Netflix to products from online shopping platforms like Amazon. Even if you don’t know the term recommender systems, there’s a good chance you understand what it does.</p>
-<p>I first heard about recommender systems in the context of the <a href="https://en.wikipedia.org/wiki/Netflix_Prize">Netflix prize</a> which was an open competition in 2009 for best collaborative filtering (CF) algorithm. The challenge was to improve upon Netflix’s existing recommender system by at least <code>0.10 RMSE</code> and the winner was awarded $1MM. Around that time, <a href="https://arxiv.org/abs/2209.01860">nearest neighbor techniques were popular</a> CF methods however, the winners of the Netflix prize proved that [matrix factorization](https://en.wikipedia.org/wiki/Matrix_factorization_(recommender_systems) (MF) models were superior. MF models have some similarity to singular value decomposition (SVD) but can handle sparsity often seen with recommender system datasets whereas SVD cannot.</p>
+<p>I first heard about recommender systems in the context of the <a href="https://en.wikipedia.org/wiki/Netflix_Prize">Netflix prize</a> which was an open competition in 2009 for best collaborative filtering (CF) algorithm. The challenge was to improve upon Netflix’s existing recommender system by at least <code>0.10 RMSE</code> and the winner was awarded $1MM. Around that time, <a href="https://arxiv.org/abs/2209.01860">nearest neighbor techniques were popular</a> CF methods however, the winners of the Netflix prize proved that <a href="https://en.wikipedia.org/wiki/Matrix_factorization">matrix factorization</a> (MF) models were superior. MF models have some similarity to singular value decomposition (SVD) but can handle sparsity often seen with recommender system datasets whereas SVD cannot.</p>
 <p>To understand more about MF and recommender systems, in this post I’ll be creating an algorithm from scratch and evaluating it’s performance on the <a href="https://www.kaggle.com/datasets/grouplens/movielens-20m-dataset">MovieLens 20M dataset</a> (see <a href="https://grouplens.org/datasets/movielens/20m/">here</a> for more info). In particular, I’ll be implementing <a href="https://proceedings.neurips.cc/paper_files/paper/2007/file/d7322ed717dedf1eb4e6e52a37ea7bcd-Paper.pdf">probabilistic matrix factorization</a> (PMF) which was a seminal improvement over previous MF techniques because of it’s ability to handle sparsity and scale linearly with data.</p>
 <p>Before diving into a mathematical derivation, let me provide some intuition about how PMF works.</p>
 <p>In a ratings scenario we have some number of <code>n</code> users and <code>m</code> movies. This can be represented with an <code>n x m</code> matrix where values of the matrix are the ranking a person gave to a movie. For simplicity, let’s say the value is a 1 if they watched and liked the movie otherwise it’s a 0. Most people will only watch a handful of movies so there’ll be lots missing values in the matrix.</p>
@@ -1033,28 +1033,27 @@ missing values in ratings matrix: 98.7%</code></pre>
 </div>
 </div>
 <div class="cell" data-outputid="669d595b-2ebf-4190-bbdb-57519b98e56d" data-execution_count="32">
-<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="co"># paper uses 30 latent factor dimension with originally netflix dataset of 100M+ ratings, ~500k users, ~20k movies</span></span>
-<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="co"># this dataset has 100k ratings, ~600 users, ~10k movies... use latent dimension of 10-30</span></span>
-<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a><span class="co"># adaptive prior PMF w/ spherical covariances in paper lambda U = 0.01, lambda V = 0.001</span></span>
-<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a><span class="co"># constrained PMF lambda = 0.002</span></span>
-<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a><span class="co"># scale different here because of standardization</span></span>
-<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>d <span class="op">=</span> <span class="dv">30</span></span>
-<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>lambda_uv <span class="op">=</span> <span class="dv">10</span>  <span class="co"># higher better</span></span>
-<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a>sigma_r <span class="op">=</span> <span class="dv">1</span>  <span class="co"># np.std(R[~np.isnan(R)])</span></span>
-<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a>sigma_uv <span class="op">=</span> np.sqrt(sigma_r<span class="op">**</span><span class="dv">2</span> <span class="op">/</span> lambda_uv)  <span class="co"># assuming sigma of 1 for ratings matrix (see below, normalized)</span></span>
-<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a><span class="co"># randomly generate values for user and movie latent matrices</span></span>
-<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a><span class="co"># note that U can be empty since we update that first during optimization anyways</span></span>
-<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a>U_mu <span class="op">=</span> np.zeros(d)</span>
-<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a>U_cov <span class="op">=</span> np.identity(d) <span class="op">*</span> sigma_uv<span class="op">**</span><span class="dv">2</span>  <span class="co"># spherical</span></span>
-<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a>U <span class="op">=</span> np.random.multivariate_normal(U_mu, U_cov, size<span class="op">=</span>n).T</span>
-<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb21-17"><a href="#cb21-17" aria-hidden="true" tabindex="-1"></a>V_mu <span class="op">=</span> np.zeros(d)</span>
-<span id="cb21-18"><a href="#cb21-18" aria-hidden="true" tabindex="-1"></a>V_cov <span class="op">=</span> np.identity(d) <span class="op">*</span> sigma_uv<span class="op">**</span><span class="dv">2</span></span>
-<span id="cb21-19"><a href="#cb21-19" aria-hidden="true" tabindex="-1"></a>V <span class="op">=</span> np.random.multivariate_normal(V_mu, V_cov, size<span class="op">=</span>m).T</span>
-<span id="cb21-20"><a href="#cb21-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb21-21"><a href="#cb21-21" aria-hidden="true" tabindex="-1"></a><span class="co"># D x M/N</span></span>
-<span id="cb21-22"><a href="#cb21-22" aria-hidden="true" tabindex="-1"></a>U.shape, V.shape</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="co"># paper uses:</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="co">#  d=30 with original netflix dataset 100M+ ratings, ~500k users, ~20k movies</span></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a><span class="co">#  adaptive prior w/ spherical covariances lambda U = 0.01, lambda V = 0.001</span></span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a><span class="co">#  constrained PMF lambda = 0.002</span></span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>d <span class="op">=</span> <span class="dv">30</span></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>lambda_uv <span class="op">=</span> <span class="dv">10</span>  <span class="co"># higher better</span></span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>sigma_r <span class="op">=</span> <span class="dv">1</span>  <span class="co"># np.std(R[~np.isnan(R)])</span></span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a>sigma_uv <span class="op">=</span> np.sqrt(sigma_r<span class="op">**</span><span class="dv">2</span> <span class="op">/</span> lambda_uv)  <span class="co"># assume sigma=1 for ratings matrix</span></span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a><span class="co"># randomly generate values for user and movie latent matrices</span></span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a><span class="co"># U can be empty, updated first</span></span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a>U_mu <span class="op">=</span> np.zeros(d)</span>
+<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a>U_cov <span class="op">=</span> np.identity(d) <span class="op">*</span> sigma_uv<span class="op">**</span><span class="dv">2</span>  <span class="co"># spherical</span></span>
+<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a>U <span class="op">=</span> np.random.multivariate_normal(U_mu, U_cov, size<span class="op">=</span>n).T</span>
+<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a>V_mu <span class="op">=</span> np.zeros(d)</span>
+<span id="cb21-17"><a href="#cb21-17" aria-hidden="true" tabindex="-1"></a>V_cov <span class="op">=</span> np.identity(d) <span class="op">*</span> sigma_uv<span class="op">**</span><span class="dv">2</span></span>
+<span id="cb21-18"><a href="#cb21-18" aria-hidden="true" tabindex="-1"></a>V <span class="op">=</span> np.random.multivariate_normal(V_mu, V_cov, size<span class="op">=</span>m).T</span>
+<span id="cb21-19"><a href="#cb21-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-20"><a href="#cb21-20" aria-hidden="true" tabindex="-1"></a><span class="co"># D x M/N</span></span>
+<span id="cb21-21"><a href="#cb21-21" aria-hidden="true" tabindex="-1"></a>U.shape, V.shape</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display" data-execution_count="32">
 <pre><code>((30, 69878), (30, 10677))</code></pre>
 </div>
