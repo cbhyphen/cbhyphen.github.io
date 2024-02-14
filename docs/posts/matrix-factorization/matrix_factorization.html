@@ -177,14 +177,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 
 
-<p>It’s pretty difficult to escape recommender systems in 2024. These days, we regularly get recommended content from streaming services like Netflix to products from online shopping platforms like Amazon. Even if you don’t know the term recommender systems, there’s a good chance you understand what it does.</p>
-<p>I first heard about recommender systems in the context of the <a href="https://en.wikipedia.org/wiki/Netflix_Prize">Netflix prize</a> which was an open competition in 2009 for best collaborative filtering (CF) algorithm. The challenge was to improve upon Netflix’s existing recommender system by at least <code>0.10 RMSE</code> and the winner was awarded $1MM. Around that time, <a href="https://arxiv.org/abs/2209.01860">nearest neighbor techniques were popular</a> CF methods however, the winners of the Netflix prize proved that <a href="https://en.wikipedia.org/wiki/Matrix_factorization">matrix factorization</a> (MF) models were superior. MF models have some similarity to singular value decomposition (SVD) but can handle sparsity often seen with recommender system datasets whereas SVD cannot.</p>
-<p>To understand more about MF and recommender systems, in this post I’ll be creating an algorithm from scratch and evaluating it’s performance on the <a href="https://www.kaggle.com/datasets/grouplens/movielens-20m-dataset">MovieLens 20M dataset</a> (see <a href="https://grouplens.org/datasets/movielens/20m/">here</a> for more info). In particular, I’ll be implementing <a href="https://proceedings.neurips.cc/paper_files/paper/2007/file/d7322ed717dedf1eb4e6e52a37ea7bcd-Paper.pdf">probabilistic matrix factorization</a> (PMF) which was a seminal improvement over previous MF techniques because of it’s ability to handle sparsity and scale linearly with data.</p>
+<p>It’s pretty difficult to escape recommender systems in 2024. These days, we regularly get recommended things such as content from streaming services like Netflix and products from online shopping platforms like Amazon. Even if you don’t know the term recommender systems, there’s a good chance you understand what it does.</p>
+<p>I first heard about recommender systems in the context of the <a href="https://en.wikipedia.org/wiki/Netflix_Prize">Netflix prize</a> which was an open competition in 2009 for best collaborative filtering (CF) algorithm. The challenge was to improve upon Netflix’s existing recommender system by at least <code>0.10 RMSE</code> and the winner was awarded $1MM. Around that time, <a href="https://arxiv.org/abs/2209.01860">nearest neighbor techniques were popular</a> CF methods however, the winners of the Netflix prize proved that <a href="https://en.wikipedia.org/wiki/Matrix_factorization">matrix factorization</a> (MF) models were superior. MF models have some similarity to singular value decomposition (SVD) but can handle sparsity often seen with recommender system datasets whereas SVD can’t.</p>
+<p>To understand more about MF and recommender systems, in this post I’ll be creating an algorithm from scratch and evaluating it’s performance on the <a href="https://www.kaggle.com/datasets/grouplens/movielens-20m-dataset">MovieLens 20M dataset</a> (see <a href="https://grouplens.org/datasets/movielens/20m/">here</a> for more info). In particular, I’ll be implementing probabilistic matrix factorization (PMF) which was a seminal improvement over previous MF techniques because of it’s ability to handle sparsity and scale linearly with data (<a href="https://proceedings.neurips.cc/paper_files/paper/2007/file/d7322ed717dedf1eb4e6e52a37ea7bcd-Paper.pdf">see paper here</a>).</p>
 <p>Before diving into a mathematical derivation, let me provide some intuition about how PMF works.</p>
-<p>In a ratings scenario we have some number of <code>n</code> users and <code>m</code> movies. This can be represented with an <code>n x m</code> matrix where values of the matrix are the ranking a person gave to a movie. For simplicity, let’s say the value is a 1 if they watched and liked the movie otherwise it’s a 0. Most people will only watch a handful of movies so there’ll be lots missing values in the matrix.</p>
-<p>So in this matrix, each user can be represented by a sparse vector of 1’s and 0’s that describe the movies they liked (or the users that liked them in the case of movie vectors). But we can use a more compact representation similar to how one-hot encoded words are condensed via word embeddings. This allows for easier comparison if we want to use something like cosine similarity to compare users, for example.</p>
-<p>The embedded representations of users and movies will form two smaller matrices, say <code>n x d</code> and <code>m x d</code> where <code>d &lt;&lt; n</code> and <code>d &lt;&lt; m</code>. It just so happens that the matrix product of these smaller matrices are an approximation for the original ratings matrix. And we can minimize this error in an optimization process similar to gradient descent. Once we’ve done that, we can approximate the rating a user might have given a movie even if they didn’t watch it. And the movie with the highest likelihood of a positive rating, well we can recommend that to a user. So at a high level, that’s exactly what I’m going to do here with MF.</p>
-<p>Time for formal mathematical definitions and a derivation of the algorithm. Note that the paper does define an objective function but leaves out any detailed description of a learning algorithm.</p>
+<p>In a ratings scenario we have some number of <code>n</code> users and <code>m</code> movies. This can be represented with an <code>n x m</code> matrix where values of the matrix are the ranking a person gave to a movie. For simplicity, let’s say the value is a 1 if they watched and liked the movie otherwise it’s a 0. Most people will only watch a handful of movies so there’ll be many missing values in the matrix.</p>
+<p>In the ratings matrix, each user can be described by the sparse vector of 1’s (mostly 0’s) that indicate the movies they liked (or the users that liked them in the case of movie vectors). But we can use a more compact representation similar to how one-hot encoded words are condensed via word embeddings. This allows for easier comparison if we want to use something like cosine similarity to compare users, for example.</p>
+<p>The dense representations of users and movies will form two smaller matrices, an <code>n x d</code> user matrix and an <code>m x d</code> movie matrix where <code>d &lt;&lt; n</code> and <code>d &lt;&lt; m</code>. You can see from a quick dimensionality analysis that the product of these two smaller matrices could be an approximation for the original ratings matrix. In fact, we could minimize the difference between the approximation and the true rating in an optimization process. Once we’ve done that, we would even have an estimate of the rating a user might have given a movie even if they didn’t watch it. And the movie with the highest likelihood of a positive rating, well we can recommend that to a user. So at a high level, that’s exactly what I’m going to do here with MF.</p>
+<p>Time for formal mathematical definitions and a derivation of the algorithm. Note that the paper does define an objective function but leaves out any detailed description of a learning algorithm. So further below I derive the update rules.</p>
 <p>Let’s say we have <span class="math inline">\(n\)</span> users and <span class="math inline">\(m\)</span> movies and a ratings matrix <span class="math inline">\(R \in \mathbb{R}^{n \times m}\)</span> such that <span class="math inline">\(R_{i,j}\)</span> is the rating by user <span class="math inline">\(i\)</span> for movie <span class="math inline">\(j\)</span>. The user latent matrix is <span class="math inline">\(U \in \mathbb{R}^{d \times n}\)</span> and movie latent matrix <span class="math inline">\(V \in \mathbb{R}^{d \times m}\)</span> where <span class="math inline">\(d\)</span> is the latent space dimension and a tunable hyperparameter.</p>
 <p>Because <span class="math inline">\(R_{i,j}\)</span> is approximated by the product of latent vectors <span class="math inline">\(U_i\)</span> and <span class="math inline">\(V_j\)</span>, it is normally distributed with specified variance.</p>
 <p><span class="math display">\[R_{i,j} \sim N(U_i^{\intercal} V_j, \sigma ^ 2)\]</span></p>
@@ -204,8 +204,8 @@ p(U|\sigma_u^2) = \prod\limits_{i}^{n} p(U_i) \; , \quad p(V|\sigma_v^2) = \prod
 E = \frac{1}{2} \sum_i^n \sum_j^m I_{i,j}(R_{i,j} - U_i^\intercal V_j)^2 + \frac{\lambda_u}{2} \sum_i^n \Vert U_i \Vert ^ 2 +  \frac{\lambda_v}{2} \sum_j^m \Vert V_j \Vert ^ 2
 \]</span></p>
 <p>where <span class="math inline">\(I_{i,j}\)</span> is an indicator function if user <span class="math inline">\(i\)</span> has rated movie <span class="math inline">\(j\)</span>, and <span class="math inline">\(\lambda_u = \frac{\sigma^2}{\sigma_u^2}\)</span> and similarly <span class="math inline">\(\lambda_v = \frac{\sigma^2}{\sigma_v^2}\)</span>.</p>
-<p>Again, the paper defines this objective function (that we want to minimize) but doesn’t go into much detail about the optimization procedure. Having two unknown latent matrices, the objective function is not convex. However, if one of the matrices is fixed, then the other turns into a convex optimization problem. So we can take turns with updates to <span class="math inline">\(U\)</span> and <span class="math inline">\(V\)</span> by performing an alternating optimization. These links by <a href="https://engineering.fb.com/2015/06/02/core-infra/recommending-items-to-more-than-a-billion-people/">Facebook</a> and <a href="https://developers.google.com/machine-learning/recommendation/collaborative/matrix">Google</a> were helpful for confirming this important detail.</p>
-<p>To find the update rules, we need to derive partial derivatives for <span class="math inline">\(U_i\)</span> and <span class="math inline">\(V_j\)</span> with respect to the objective function. So, time to dive into some matrix calculus with a little derivation for <span class="math inline">\(\frac{\partial E}{\partial U_i}\)</span>.</p>
+<p>Again, the paper defines this objective function to minimize but doesn’t go into any detail about the optimization procedure. Having two unknown latent matrices, the objective function is not convex. However, if one of the matrices is fixed, then the other turns into a convex optimization problem. So we can take turns with updates to <span class="math inline">\(U\)</span> and <span class="math inline">\(V\)</span> by performing an alternating least squares optimization (ALS). These links by <a href="https://engineering.fb.com/2015/06/02/core-infra/recommending-items-to-more-than-a-billion-people/">Facebook</a> and <a href="https://developers.google.com/machine-learning/recommendation/collaborative/matrix">Google</a> were helpful for confirming this important detail.</p>
+<p>To find the update rules, we need to derive partial derivatives for <span class="math inline">\(U_i\)</span> and <span class="math inline">\(V_j\)</span> with respect to the objective function. So, time to dive into a little matrix calculus with a derivation for <span class="math inline">\(\frac{\partial E}{\partial U_i}\)</span>.</p>
 <p><span class="math display">\[
 \frac{\partial E}{\partial U_i} = \frac{\partial}{\partial U_i} \biggl[ \frac{1}{2}\sum_i^n \sum_j^m I_{i,j}(R_{i,j} - U_i^\intercal V_j)^2 \biggr] + \frac{\partial}{\partial U_i} \biggl[ \frac{\lambda_u}{2} \sum_i^n \Vert U_i \Vert ^ 2 \biggr] + \frac{\partial}{\partial U_i} \biggl[ \frac{\lambda_v}{2} \sum_j^m \Vert V_j \Vert ^ 2 \biggr]
 \]</span></p>
@@ -230,28 +230,28 @@ U_i = \sum_j^m I_{i,j} R_{i,j} V_j \biggl( \lambda_u \mathbf{I} + \sum_j^m I_{i,
 <p><span class="math display">\[
 V_j = \sum_i^n I_{i,j} R_{i,j} U_i \biggl(\lambda_v \mathbf{I} + \sum_i^n I_{i,j} U_i U_i^\intercal \biggr)^{-1}
 \]</span></p>
-<p>With these update rules we can perform an alternating optimization which again entails updating one variable while holding the other constant and vice-versa.</p>
-<div class="cell" data-outputid="939f2145-e38e-49e3-fc90-b83416024f66" data-execution_count="1">
+<p>Armed with these update rules we can perform ALS which again entails updating one variable while holding the other constant and vice-versa.</p>
+<div class="cell" data-outputid="c742621f-101d-4448-ce6d-823f94e4201a">
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># !wget https://files.grouplens.org/datasets/movielens/ml-latest-small.zip</span></span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="op">!</span>wget https:<span class="op">//</span>files.grouplens.org<span class="op">/</span>datasets<span class="op">/</span>movielens<span class="op">/</span>ml<span class="op">-</span><span class="dv">10</span><span class="er">m</span>.<span class="bu">zip</span></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co"># https://files.grouplens.org/datasets/movielens/ml-latest-small-README.html</span></span>
 <span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co"># https://files.grouplens.org/datasets/movielens/ml-10m-README.html</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>--2024-02-13 02:21:49--  https://files.grouplens.org/datasets/movielens/ml-10m.zip
+<pre><code>--2024-02-14 04:07:27--  https://files.grouplens.org/datasets/movielens/ml-10m.zip
 Resolving files.grouplens.org (files.grouplens.org)... 128.101.65.152
 Connecting to files.grouplens.org (files.grouplens.org)|128.101.65.152|:443... connected.
 HTTP request sent, awaiting response... 200 OK
 Length: 65566137 (63M) [application/zip]
 Saving to: ‘ml-10m.zip’
 
-ml-10m.zip          100%[===================&gt;]  62.53M   116MB/s    in 0.5s    
+ml-10m.zip          100%[===================&gt;]  62.53M  22.4MB/s    in 2.8s    
 
-2024-02-13 02:21:50 (116 MB/s) - ‘ml-10m.zip’ saved [65566137/65566137]
+2024-02-14 04:07:31 (22.4 MB/s) - ‘ml-10m.zip’ saved [65566137/65566137]
 </code></pre>
 </div>
 </div>
-<div class="cell" data-outputid="c37c6885-6ede-4588-f4f0-0b5a3e41b150" data-execution_count="2">
+<div class="cell" data-outputid="23d0b8ff-6ab3-485e-9748-051cd5dbf6d2">
 <div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># !unzip ml-latest-small.zip -d ./</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="op">!</span>unzip ml<span class="op">-</span><span class="dv">10</span><span class="er">m</span>.<span class="bu">zip</span> <span class="op">-</span>d .<span class="op">/</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
@@ -265,7 +265,7 @@ ml-10m.zip          100%[===================&gt;]  62.53M   116MB/s    in 0.5s
   inflating: ./ml-10M100K/tags.dat   </code></pre>
 </div>
 </div>
-<div class="cell" data-outputid="a4c97063-275f-4d7f-e47d-79b71bed5190" data-execution_count="3">
+<div class="cell" data-outputid="50148df7-7ab7-467c-9cfb-baba33df1e42">
 <div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="co"># ratings_df = pd.read_csv("./ml-latest-small/ratings.csv")</span></span>
@@ -284,9 +284,9 @@ ml-10m.zip          100%[===================&gt;]  62.53M   116MB/s    in 0.5s
 <div class="cell-output cell-output-stdout">
 <pre><code>(10000054, 4)</code></pre>
 </div>
-<div class="cell-output cell-output-display" data-execution_count="3">
+<div class="cell-output cell-output-display" data-execution_count="18">
 
-  <div id="df-5d1f71b2-3f63-4599-9328-c58a2da40ad2" class="colab-df-container">
+  <div id="df-22e80bcc-c1fb-4768-919b-f2aef79fdbc9" class="colab-df-container">
     <div>
 
 
@@ -344,7 +344,7 @@ ml-10m.zip          100%[===================&gt;]  62.53M   116MB/s    in 0.5s
     <div class="colab-df-buttons">
 
   <div class="colab-df-container">
-    <button class="colab-df-convert" onclick="convertToInteractive('df-5d1f71b2-3f63-4599-9328-c58a2da40ad2')" title="Convert this dataframe to an interactive table." style="display:none;">
+    <button class="colab-df-convert" onclick="convertToInteractive('df-22e80bcc-c1fb-4768-919b-f2aef79fdbc9')" title="Convert this dataframe to an interactive table." style="display:none;">
 
   <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewbox="0 -960 960 960">
     <path d="M120-120v-720h720v720H120Zm60-500h600v-160H180v160Zm220 220h160v-160H400v160Zm0 220h160v-160H400v160ZM180-400h160v-160H180v160Zm440 0h160v-160H620v160ZM180-180h160v-160H180v160Zm440 0h160v-160H620v160Z"></path>
@@ -394,12 +394,12 @@ ml-10m.zip          100%[===================&gt;]  62.53M   116MB/s    in 0.5s
 
     <script>
       const buttonEl =
-        document.querySelector('#df-5d1f71b2-3f63-4599-9328-c58a2da40ad2 button.colab-df-convert');
+        document.querySelector('#df-22e80bcc-c1fb-4768-919b-f2aef79fdbc9 button.colab-df-convert');
       buttonEl.style.display =
         google.colab.kernel.accessAllowed ? 'block' : 'none';
 
       async function convertToInteractive(key) {
-        const element = document.querySelector('#df-5d1f71b2-3f63-4599-9328-c58a2da40ad2');
+        const element = document.querySelector('#df-22e80bcc-c1fb-4768-919b-f2aef79fdbc9');
         const dataTable =
           await google.colab.kernel.invokeFunction('convertToInteractive',
                                                     [key], {});
@@ -419,8 +419,8 @@ ml-10m.zip          100%[===================&gt;]  62.53M   116MB/s    in 0.5s
   </div>
 
 
-<div id="df-3e855dea-21fd-4404-88b5-7ff6b2a159d0">
-  <button class="colab-df-quickchart" onclick="quickchart('df-3e855dea-21fd-4404-88b5-7ff6b2a159d0')" title="Suggest charts" style="display:none;">
+<div id="df-afb122f0-2a42-4f49-a144-03b489317a24">
+  <button class="colab-df-quickchart" onclick="quickchart('df-afb122f0-2a42-4f49-a144-03b489317a24')" title="Suggest charts" style="display:none;">
 
 <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewbox="0 0 24 24" width="24px">
     <g>
@@ -536,7 +536,7 @@ ml-10m.zip          100%[===================&gt;]  62.53M   116MB/s    in 0.5s
     }
     (() => {
       let quickchartButtonEl =
-        document.querySelector('#df-3e855dea-21fd-4404-88b5-7ff6b2a159d0 button');
+        document.querySelector('#df-afb122f0-2a42-4f49-a144-03b489317a24 button');
       quickchartButtonEl.style.display =
         google.colab.kernel.accessAllowed ? 'block' : 'none';
     })();
@@ -547,10 +547,10 @@ ml-10m.zip          100%[===================&gt;]  62.53M   116MB/s    in 0.5s
   </div>
 </div>
 </div>
-<div class="cell" data-outputid="e77a0471-a35a-4f1c-d486-9c8bf014139b" data-execution_count="6">
+<div class="cell" data-outputid="cb81216f-9a6f-4d92-c5d9-2a3987b1607d">
 <div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ratings are in increments of 0.5</span></span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>ratings_df.rating.value_counts()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-display" data-execution_count="6">
+<div class="cell-output cell-output-display" data-execution_count="20">
 <pre><code>4.0    2875850
 3.0    2356676
 5.0    1544812
@@ -564,7 +564,7 @@ ml-10m.zip          100%[===================&gt;]  62.53M   116MB/s    in 0.5s
 Name: rating, dtype: int64</code></pre>
 </div>
 </div>
-<div class="cell" data-outputid="5677740b-4d23-4237-c2fb-36d06ff04a7d" data-execution_count="7">
+<div class="cell" data-outputid="e717fcde-b47e-41dc-8257-b56f6f868e40">
 <div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># remove timestamp and create ratings matrix</span></span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>ratings_df.drop(<span class="st">"timestamp"</span>, axis<span class="op">=</span><span class="dv">1</span>, inplace<span class="op">=</span><span class="va">True</span>)</span>
 <span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>R <span class="op">=</span> ratings_df.pivot(index<span class="op">=</span><span class="st">'userId'</span>, columns<span class="op">=</span><span class="st">'movieId'</span>, values<span class="op">=</span><span class="st">'rating'</span>)</span>
@@ -573,9 +573,9 @@ Name: rating, dtype: int64</code></pre>
 <div class="cell-output cell-output-stdout">
 <pre><code>(69878, 10677)</code></pre>
 </div>
-<div class="cell-output cell-output-display" data-execution_count="7">
+<div class="cell-output cell-output-display" data-execution_count="21">
 
-  <div id="df-ef3147bb-dd8a-4573-8746-a5c00184eab8" class="colab-df-container">
+  <div id="df-9330d75e-83ce-463c-9e20-bebf598ec583" class="colab-df-container">
     <div>
 
 
@@ -760,7 +760,7 @@ Name: rating, dtype: int64</code></pre>
     <div class="colab-df-buttons">
 
   <div class="colab-df-container">
-    <button class="colab-df-convert" onclick="convertToInteractive('df-ef3147bb-dd8a-4573-8746-a5c00184eab8')" title="Convert this dataframe to an interactive table." style="display:none;">
+    <button class="colab-df-convert" onclick="convertToInteractive('df-9330d75e-83ce-463c-9e20-bebf598ec583')" title="Convert this dataframe to an interactive table." style="display:none;">
 
   <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewbox="0 -960 960 960">
     <path d="M120-120v-720h720v720H120Zm60-500h600v-160H180v160Zm220 220h160v-160H400v160Zm0 220h160v-160H400v160ZM180-400h160v-160H180v160Zm440 0h160v-160H620v160ZM180-180h160v-160H180v160Zm440 0h160v-160H620v160Z"></path>
@@ -810,12 +810,12 @@ Name: rating, dtype: int64</code></pre>
 
     <script>
       const buttonEl =
-        document.querySelector('#df-ef3147bb-dd8a-4573-8746-a5c00184eab8 button.colab-df-convert');
+        document.querySelector('#df-9330d75e-83ce-463c-9e20-bebf598ec583 button.colab-df-convert');
       buttonEl.style.display =
         google.colab.kernel.accessAllowed ? 'block' : 'none';
 
       async function convertToInteractive(key) {
-        const element = document.querySelector('#df-ef3147bb-dd8a-4573-8746-a5c00184eab8');
+        const element = document.querySelector('#df-9330d75e-83ce-463c-9e20-bebf598ec583');
         const dataTable =
           await google.colab.kernel.invokeFunction('convertToInteractive',
                                                     [key], {});
@@ -835,8 +835,8 @@ Name: rating, dtype: int64</code></pre>
   </div>
 
 
-<div id="df-5f90d8dd-4c1f-444e-97bf-8200060becc1">
-  <button class="colab-df-quickchart" onclick="quickchart('df-5f90d8dd-4c1f-444e-97bf-8200060becc1')" title="Suggest charts" style="display:none;">
+<div id="df-9e6fcfd9-e3b6-4e5f-8894-f37d4cfbb6d8">
+  <button class="colab-df-quickchart" onclick="quickchart('df-9e6fcfd9-e3b6-4e5f-8894-f37d4cfbb6d8')" title="Suggest charts" style="display:none;">
 
 <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewbox="0 0 24 24" width="24px">
     <g>
@@ -952,7 +952,7 @@ Name: rating, dtype: int64</code></pre>
     }
     (() => {
       let quickchartButtonEl =
-        document.querySelector('#df-5f90d8dd-4c1f-444e-97bf-8200060becc1 button');
+        document.querySelector('#df-9e6fcfd9-e3b6-4e5f-8894-f37d4cfbb6d8 button');
       quickchartButtonEl.style.display =
         google.colab.kernel.accessAllowed ? 'block' : 'none';
     })();
@@ -963,18 +963,18 @@ Name: rating, dtype: int64</code></pre>
   </div>
 </div>
 </div>
-<div class="cell" data-execution_count="8">
+<div class="cell">
 <div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
 <span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>R <span class="op">=</span> R.to_numpy()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-execution_count="9">
+<div class="cell">
 <div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># sanity check - all movies have rating and all users have rated as expected</span></span>
 <span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>users_not_rated <span class="op">=</span> np.<span class="bu">all</span>(np.isnan(R), axis<span class="op">=</span><span class="dv">1</span>).<span class="bu">sum</span>()</span>
 <span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>movies_not_rated <span class="op">=</span> np.<span class="bu">all</span>(np.isnan(R), axis<span class="op">=</span><span class="dv">0</span>).<span class="bu">sum</span>()</span>
 <span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="dv">0</span> <span class="op">==</span> users_not_rated <span class="op">==</span> movies_not_rated</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-outputid="a9cde933-ec15-4e65-a794-cd600b944727" data-execution_count="10">
+<div class="cell" data-outputid="b1d966ad-a380-48da-f2af-af028c005972">
 <div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ratio missing values</span></span>
 <span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>n, m <span class="op">=</span> R.shape</span>
 <span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>nans <span class="op">=</span> np.isnan(R).<span class="bu">sum</span>()</span>
@@ -993,11 +993,11 @@ total number of possible ratings: 746087406
 missing values in ratings matrix: 98.7%</code></pre>
 </div>
 </div>
-<div class="cell" data-outputid="6232b681-3e69-4520-c23a-47bcf13c0340" data-execution_count="17">
+<div class="cell" data-outputid="0491ec0f-e7b4-4481-b901-cfff43cbc410">
 <div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co"># indices of ratings</span></span>
 <span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>rating_idxs <span class="op">=</span> np.argwhere(np.isfinite(R))  <span class="co"># 2D array [[i ,j], ...]</span></span>
 <span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a><span class="co"># randomly select 20% of rating indices to keep as test</span></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a><span class="co"># randomly select 15% of rating indices to keep as test</span></span>
 <span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>train_slice <span class="op">=</span> np.random.choice(num_ratings, size<span class="op">=</span><span class="bu">int</span>(num_ratings <span class="op">*</span> <span class="fl">0.85</span>), replace<span class="op">=</span><span class="va">False</span>)</span>
 <span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>test_slice <span class="op">=</span> np.setdiff1d(np.arange(num_ratings), train_slice)</span>
 <span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a></span>
@@ -1005,11 +1005,11 @@ missing values in ratings matrix: 98.7%</code></pre>
 <span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>test_idxs <span class="op">=</span> rating_idxs[test_slice, :]</span>
 <span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>train_idxs.shape, test_idxs.shape</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-display" data-execution_count="17">
+<div class="cell-output cell-output-display" data-execution_count="25">
 <pre><code>((8500045, 2), (1500009, 2))</code></pre>
 </div>
 </div>
-<div class="cell" data-execution_count="30">
+<div class="cell">
 <div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co"># fill test indices with NA in training data</span></span>
 <span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>R_train <span class="op">=</span> R.copy()</span>
 <span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -1018,7 +1018,7 @@ missing values in ratings matrix: 98.7%</code></pre>
 <span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> np.isnan(R_train).<span class="bu">sum</span>() <span class="op">==</span> nans <span class="op">+</span> test_idxs.shape[<span class="dv">0</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-outputid="9091eec1-9960-4baa-8984-70e57b474be1" data-execution_count="31">
+<div class="cell" data-outputid="2af275bb-8491-4802-e14e-4174cd2c9cf8">
 <div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="co"># normalizing the training data to zero mean and sigma of 1 for simplicity</span></span>
 <span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>ii_train <span class="op">=</span> train_idxs[:, <span class="dv">0</span>].flatten()</span>
 <span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>jj_train <span class="op">=</span> train_idxs[:, <span class="dv">1</span>].flatten()</span>
@@ -1032,33 +1032,35 @@ missing values in ratings matrix: 98.7%</code></pre>
 <pre><code>R train mu: 3.51     R train sigma: 1.06</code></pre>
 </div>
 </div>
-<div class="cell" data-outputid="669d595b-2ebf-4190-bbdb-57519b98e56d" data-execution_count="32">
+<div class="cell" data-outputid="d8f96ce4-3d87-40dd-f7be-19ea2fd390b1">
 <div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="co"># paper uses:</span></span>
 <span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="co">#  d=30 with original netflix dataset 100M+ ratings, ~500k users, ~20k movies</span></span>
 <span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a><span class="co">#  adaptive prior w/ spherical covariances lambda U = 0.01, lambda V = 0.001</span></span>
 <span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a><span class="co">#  constrained PMF lambda = 0.002</span></span>
 <span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>d <span class="op">=</span> <span class="dv">30</span></span>
-<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>lambda_uv <span class="op">=</span> <span class="dv">10</span>  <span class="co"># higher better</span></span>
-<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>sigma_r <span class="op">=</span> <span class="dv">1</span>  <span class="co"># np.std(R[~np.isnan(R)])</span></span>
-<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a>sigma_uv <span class="op">=</span> np.sqrt(sigma_r<span class="op">**</span><span class="dv">2</span> <span class="op">/</span> lambda_uv)  <span class="co"># assume sigma=1 for ratings matrix</span></span>
-<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a><span class="co"># randomly generate values for user and movie latent matrices</span></span>
-<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a><span class="co"># U can be empty, updated first</span></span>
-<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a>U_mu <span class="op">=</span> np.zeros(d)</span>
-<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a>U_cov <span class="op">=</span> np.identity(d) <span class="op">*</span> sigma_uv<span class="op">**</span><span class="dv">2</span>  <span class="co"># spherical</span></span>
-<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a>U <span class="op">=</span> np.random.multivariate_normal(U_mu, U_cov, size<span class="op">=</span>n).T</span>
-<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a>V_mu <span class="op">=</span> np.zeros(d)</span>
-<span id="cb21-17"><a href="#cb21-17" aria-hidden="true" tabindex="-1"></a>V_cov <span class="op">=</span> np.identity(d) <span class="op">*</span> sigma_uv<span class="op">**</span><span class="dv">2</span></span>
-<span id="cb21-18"><a href="#cb21-18" aria-hidden="true" tabindex="-1"></a>V <span class="op">=</span> np.random.multivariate_normal(V_mu, V_cov, size<span class="op">=</span>m).T</span>
-<span id="cb21-19"><a href="#cb21-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb21-20"><a href="#cb21-20" aria-hidden="true" tabindex="-1"></a><span class="co"># D x M/N</span></span>
-<span id="cb21-21"><a href="#cb21-21" aria-hidden="true" tabindex="-1"></a>U.shape, V.shape</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-display" data-execution_count="32">
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>lambda_u <span class="op">=</span> <span class="dv">20</span>  <span class="co"># higher better 20</span></span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>lambda_v <span class="op">=</span> <span class="dv">20</span></span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a>sigma_r <span class="op">=</span> <span class="dv">1</span>  <span class="co"># np.std(R[~np.isnan(R)])</span></span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a>sigma_u <span class="op">=</span> np.sqrt(sigma_r<span class="op">**</span><span class="dv">2</span> <span class="op">/</span> lambda_u)  <span class="co"># assume sigma=1 for ratings matrix</span></span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a>sigma_v <span class="op">=</span> np.sqrt(sigma_r<span class="op">**</span><span class="dv">2</span> <span class="op">/</span> lambda_v)</span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a><span class="co"># randomly generate values for user and movie latent matrices</span></span>
+<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a><span class="co"># U can be empty since updated first</span></span>
+<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a>U_mu <span class="op">=</span> np.zeros(d)</span>
+<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a>U_cov <span class="op">=</span> np.identity(d) <span class="op">*</span> sigma_u<span class="op">**</span><span class="dv">2</span>  <span class="co"># spherical</span></span>
+<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a>U <span class="op">=</span> np.random.multivariate_normal(U_mu, U_cov, size<span class="op">=</span>n).T</span>
+<span id="cb21-17"><a href="#cb21-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-18"><a href="#cb21-18" aria-hidden="true" tabindex="-1"></a>V_mu <span class="op">=</span> np.zeros(d)</span>
+<span id="cb21-19"><a href="#cb21-19" aria-hidden="true" tabindex="-1"></a>V_cov <span class="op">=</span> np.identity(d) <span class="op">*</span> sigma_v<span class="op">**</span><span class="dv">2</span></span>
+<span id="cb21-20"><a href="#cb21-20" aria-hidden="true" tabindex="-1"></a>V <span class="op">=</span> np.random.multivariate_normal(V_mu, V_cov, size<span class="op">=</span>m).T</span>
+<span id="cb21-21"><a href="#cb21-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-22"><a href="#cb21-22" aria-hidden="true" tabindex="-1"></a><span class="co"># D x M/N</span></span>
+<span id="cb21-23"><a href="#cb21-23" aria-hidden="true" tabindex="-1"></a>U.shape, V.shape</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="28">
 <pre><code>((30, 69878), (30, 10677))</code></pre>
 </div>
 </div>
-<div class="cell" data-execution_count="33">
+<div class="cell">
 <div class="sourceCode cell-code" id="cb23"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="co"># function to update U_i latent vector</span></span>
 <span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> update_U_i(i, ratings_matrix, user_matrix, movie_matrix, lambda_u):</span>
@@ -1091,114 +1093,115 @@ missing values in ratings matrix: 98.7%</code></pre>
 <span id="cb23-30"><a href="#cb23-30" aria-hidden="true" tabindex="-1"></a>        sum_uu <span class="op">+=</span> np.outer(U_i, U_i)</span>
 <span id="cb23-31"><a href="#cb23-31" aria-hidden="true" tabindex="-1"></a>    movie_matrix[:, j] <span class="op">=</span> sum_ru <span class="op">@</span> np.linalg.inv(sum_uu <span class="op">+</span> np.identity(d) <span class="op">*</span> lambda_v)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-execution_count="34">
+<div class="cell">
 <div class="sourceCode cell-code" id="cb24"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="co"># use logistic function since ratings prediction is zero mean</span></span>
 <span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> sigmoid(x):</span>
 <span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">1</span> <span class="op">/</span> (<span class="dv">1</span> <span class="op">+</span> np.exp(<span class="op">-</span>x))</span>
 <span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a><span class="co"># map sigmoid to range 1-5 (from paper)</span></span>
-<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a>k <span class="op">=</span> <span class="dv">5</span></span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a><span class="co"># map sigmoid to range [1, 5] from paper</span></span>
+<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a><span class="co"># there are 0.5 ratings so this isn't perfect</span></span>
 <span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb24-9"><a href="#cb24-9" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> sigmoid_to_rating(x, k<span class="op">=</span><span class="dv">5</span>):</span>
 <span id="cb24-10"><a href="#cb24-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> (k <span class="op">-</span> <span class="dv">1</span>) <span class="op">*</span> x <span class="op">+</span> <span class="dv">1</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-outputid="a8e372fa-a750-4d4e-9197-61d29ffa6691" data-execution_count="35">
+<div class="cell" data-outputid="c2759f8c-192c-4d95-e893-0eedb8133114">
 <div class="sourceCode cell-code" id="cb25"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="co"># run optimization and report RMSE</span></span>
 <span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>epochs <span class="op">=</span> <span class="dv">20</span></span>
 <span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>train_rmse <span class="op">=</span> []</span>
 <span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>valid_rmse <span class="op">=</span> []</span>
 <span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a><span class="co"># lambda_u = lambda_uv</span></span>
-<span id="cb25-8"><a href="#cb25-8" aria-hidden="true" tabindex="-1"></a><span class="co"># lambda_v = lambda_uv</span></span>
+<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a><span class="co"># lambda_u_hat = lambda_u</span></span>
+<span id="cb25-8"><a href="#cb25-8" aria-hidden="true" tabindex="-1"></a><span class="co"># lambda_v_hat = lambda_v</span></span>
 <span id="cb25-9"><a href="#cb25-9" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb25-10"><a href="#cb25-10" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> e <span class="kw">in</span> <span class="bu">range</span>(epochs):</span>
 <span id="cb25-11"><a href="#cb25-11" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb25-12"><a href="#cb25-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(n):</span>
-<span id="cb25-13"><a href="#cb25-13" aria-hidden="true" tabindex="-1"></a>        update_U_i(i, R_train, U, V, lambda_uv)</span>
+<span id="cb25-13"><a href="#cb25-13" aria-hidden="true" tabindex="-1"></a>        update_U_i(i, R_train, U, V, lambda_u)</span>
 <span id="cb25-14"><a href="#cb25-14" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb25-15"><a href="#cb25-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> j <span class="kw">in</span> <span class="bu">range</span>(m):</span>
-<span id="cb25-16"><a href="#cb25-16" aria-hidden="true" tabindex="-1"></a>        update_V_j(j, R_train, U, V, lambda_uv)</span>
+<span id="cb25-16"><a href="#cb25-16" aria-hidden="true" tabindex="-1"></a>        update_V_j(j, R_train, U, V, lambda_v)</span>
 <span id="cb25-17"><a href="#cb25-17" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb25-18"><a href="#cb25-18" aria-hidden="true" tabindex="-1"></a>    <span class="co"># adaptive...  single sigma -&gt; update lambda_uv = 1 / (sigma_uv ** 2)</span></span>
-<span id="cb25-19"><a href="#cb25-19" aria-hidden="true" tabindex="-1"></a>    <span class="co"># sigma_u_hat = np.std(U)</span></span>
-<span id="cb25-20"><a href="#cb25-20" aria-hidden="true" tabindex="-1"></a>    <span class="co"># sigma_v_hat = np.std(V)</span></span>
-<span id="cb25-21"><a href="#cb25-21" aria-hidden="true" tabindex="-1"></a>    <span class="co"># lambda_u_hat = 1 / (sigma_u_hat ** 2)</span></span>
-<span id="cb25-22"><a href="#cb25-22" aria-hidden="true" tabindex="-1"></a>    <span class="co"># lambda_v_hat = 1 / (sigma_v_hat ** 2)</span></span>
-<span id="cb25-23"><a href="#cb25-23" aria-hidden="true" tabindex="-1"></a>    <span class="co"># print(f"sigma U: {sigma_u_hat}")</span></span>
-<span id="cb25-24"><a href="#cb25-24" aria-hidden="true" tabindex="-1"></a>    <span class="co"># print(f"sigma V: {sigma_v_hat}")</span></span>
-<span id="cb25-25"><a href="#cb25-25" aria-hidden="true" tabindex="-1"></a>    <span class="co"># print(f"lambda u: {lambda_u_hat}")</span></span>
-<span id="cb25-26"><a href="#cb25-26" aria-hidden="true" tabindex="-1"></a>    <span class="co"># print(f"lambda v: {lambda_v_hat}")</span></span>
-<span id="cb25-27"><a href="#cb25-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-28"><a href="#cb25-28" aria-hidden="true" tabindex="-1"></a>    <span class="co"># training metrics</span></span>
-<span id="cb25-29"><a href="#cb25-29" aria-hidden="true" tabindex="-1"></a>    sse <span class="op">=</span> <span class="dv">0</span></span>
-<span id="cb25-30"><a href="#cb25-30" aria-hidden="true" tabindex="-1"></a>    sse_norm <span class="op">=</span> <span class="dv">0</span></span>
-<span id="cb25-31"><a href="#cb25-31" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i, j <span class="kw">in</span> train_idxs:  <span class="co"># skips NA</span></span>
-<span id="cb25-32"><a href="#cb25-32" aria-hidden="true" tabindex="-1"></a>        r_ij_hat <span class="op">=</span> np.dot(U[:, i], V[:, j])  <span class="co"># pred</span></span>
-<span id="cb25-33"><a href="#cb25-33" aria-hidden="true" tabindex="-1"></a>        rating <span class="op">=</span> sigmoid_to_rating(sigmoid(r_ij_hat))</span>
-<span id="cb25-34"><a href="#cb25-34" aria-hidden="true" tabindex="-1"></a>        <span class="co"># rating_half_inc = round(rating * 2) / 2  # rounds to nearest 0.5</span></span>
-<span id="cb25-35"><a href="#cb25-35" aria-hidden="true" tabindex="-1"></a>        sse <span class="op">+=</span> (R[i, j] <span class="op">-</span> rating) <span class="op">**</span> <span class="dv">2</span></span>
-<span id="cb25-36"><a href="#cb25-36" aria-hidden="true" tabindex="-1"></a>        sse_norm <span class="op">+=</span> (R_train[i, j] <span class="op">-</span> r_ij_hat) <span class="op">**</span> <span class="dv">2</span></span>
-<span id="cb25-37"><a href="#cb25-37" aria-hidden="true" tabindex="-1"></a>    rmse_train <span class="op">=</span> np.sqrt(sse <span class="op">/</span> train_idxs.shape[<span class="dv">0</span>])</span>
-<span id="cb25-38"><a href="#cb25-38" aria-hidden="true" tabindex="-1"></a>    rmse_norm <span class="op">=</span> np.sqrt(sse_norm <span class="op">/</span> train_idxs.shape[<span class="dv">0</span>])</span>
-<span id="cb25-39"><a href="#cb25-39" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"epoch </span><span class="sc">{</span>e <span class="op">+</span> <span class="dv">1</span><span class="sc">}</span><span class="ss">  |  training RMSE: </span><span class="sc">{</span><span class="bu">round</span>(rmse_train, <span class="dv">4</span>)<span class="sc">}</span><span class="ss"> (normalized: </span><span class="sc">{</span><span class="bu">round</span>(rmse_norm, <span class="dv">4</span>)<span class="sc">}</span><span class="ss">)"</span>)</span>
-<span id="cb25-40"><a href="#cb25-40" aria-hidden="true" tabindex="-1"></a>    train_rmse.append(rmse_train)</span>
-<span id="cb25-41"><a href="#cb25-41" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-42"><a href="#cb25-42" aria-hidden="true" tabindex="-1"></a>    <span class="co"># validation RMSE</span></span>
-<span id="cb25-43"><a href="#cb25-43" aria-hidden="true" tabindex="-1"></a>    sse <span class="op">=</span> <span class="dv">0</span></span>
-<span id="cb25-44"><a href="#cb25-44" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i, j <span class="kw">in</span> test_idxs:</span>
-<span id="cb25-45"><a href="#cb25-45" aria-hidden="true" tabindex="-1"></a>        r_ij_hat <span class="op">=</span> np.dot(U[:, i], V[:, j])</span>
-<span id="cb25-46"><a href="#cb25-46" aria-hidden="true" tabindex="-1"></a>        rating <span class="op">=</span> sigmoid_to_rating(sigmoid(r_ij_hat))</span>
-<span id="cb25-47"><a href="#cb25-47" aria-hidden="true" tabindex="-1"></a>        <span class="co"># rating_half_inc = round(rating * 2) / 2  # rounds to nearest 0.5</span></span>
-<span id="cb25-48"><a href="#cb25-48" aria-hidden="true" tabindex="-1"></a>        sse <span class="op">+=</span> (R[i, j] <span class="op">-</span> rating) <span class="op">**</span> <span class="dv">2</span></span>
-<span id="cb25-49"><a href="#cb25-49" aria-hidden="true" tabindex="-1"></a>    rmse_valid <span class="op">=</span> np.sqrt(sse <span class="op">/</span> test_idxs.shape[<span class="dv">0</span>])</span>
-<span id="cb25-50"><a href="#cb25-50" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"epoch </span><span class="sc">{</span>e <span class="op">+</span> <span class="dv">1</span><span class="sc">}</span><span class="ss">  |  validation RMSE: </span><span class="sc">{</span><span class="bu">round</span>(rmse_valid, <span class="dv">4</span>)<span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb25-51"><a href="#cb25-51" aria-hidden="true" tabindex="-1"></a>    valid_rmse.append(rmse_valid)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb25-19"><a href="#cb25-19" aria-hidden="true" tabindex="-1"></a>    <span class="co"># if (e + 1) % 10 == 0:</span></span>
+<span id="cb25-20"><a href="#cb25-20" aria-hidden="true" tabindex="-1"></a>    <span class="co">#     sigma_u_hat = np.std(U, axis=1)</span></span>
+<span id="cb25-21"><a href="#cb25-21" aria-hidden="true" tabindex="-1"></a>    <span class="co">#     sigma_v_hat = np.std(V, axis=1)</span></span>
+<span id="cb25-22"><a href="#cb25-22" aria-hidden="true" tabindex="-1"></a>    <span class="co">#     lambda_u_hat = 1 / (sigma_u_hat ** 2)</span></span>
+<span id="cb25-23"><a href="#cb25-23" aria-hidden="true" tabindex="-1"></a>    <span class="co">#     lambda_v_hat = 1 / (sigma_v_hat ** 2)</span></span>
+<span id="cb25-24"><a href="#cb25-24" aria-hidden="true" tabindex="-1"></a>    <span class="co"># print(f"sigma U: {sigma_u_hat}")</span></span>
+<span id="cb25-25"><a href="#cb25-25" aria-hidden="true" tabindex="-1"></a>    <span class="co"># print(f"sigma V: {sigma_v_hat}")</span></span>
+<span id="cb25-26"><a href="#cb25-26" aria-hidden="true" tabindex="-1"></a>    <span class="co"># print(f"lambda u: {lambda_u_hat}")</span></span>
+<span id="cb25-27"><a href="#cb25-27" aria-hidden="true" tabindex="-1"></a>    <span class="co"># print(f"lambda v: {lambda_v_hat}")</span></span>
+<span id="cb25-28"><a href="#cb25-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-29"><a href="#cb25-29" aria-hidden="true" tabindex="-1"></a>    <span class="co"># training metrics</span></span>
+<span id="cb25-30"><a href="#cb25-30" aria-hidden="true" tabindex="-1"></a>    sse <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb25-31"><a href="#cb25-31" aria-hidden="true" tabindex="-1"></a>    sse_norm <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb25-32"><a href="#cb25-32" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i, j <span class="kw">in</span> train_idxs:  <span class="co"># skips NA</span></span>
+<span id="cb25-33"><a href="#cb25-33" aria-hidden="true" tabindex="-1"></a>        r_ij_hat <span class="op">=</span> np.dot(U[:, i], V[:, j])  <span class="co"># pred</span></span>
+<span id="cb25-34"><a href="#cb25-34" aria-hidden="true" tabindex="-1"></a>        rating <span class="op">=</span> sigmoid_to_rating(sigmoid(r_ij_hat))</span>
+<span id="cb25-35"><a href="#cb25-35" aria-hidden="true" tabindex="-1"></a>        <span class="co"># rating_half_inc = round(rating * 2) / 2  # rounds to nearest 0.5</span></span>
+<span id="cb25-36"><a href="#cb25-36" aria-hidden="true" tabindex="-1"></a>        sse <span class="op">+=</span> (R[i, j] <span class="op">-</span> rating) <span class="op">**</span> <span class="dv">2</span></span>
+<span id="cb25-37"><a href="#cb25-37" aria-hidden="true" tabindex="-1"></a>        sse_norm <span class="op">+=</span> (R_train[i, j] <span class="op">-</span> r_ij_hat) <span class="op">**</span> <span class="dv">2</span></span>
+<span id="cb25-38"><a href="#cb25-38" aria-hidden="true" tabindex="-1"></a>    rmse_train <span class="op">=</span> np.sqrt(sse <span class="op">/</span> train_idxs.shape[<span class="dv">0</span>])</span>
+<span id="cb25-39"><a href="#cb25-39" aria-hidden="true" tabindex="-1"></a>    rmse_norm <span class="op">=</span> np.sqrt(sse_norm <span class="op">/</span> train_idxs.shape[<span class="dv">0</span>])</span>
+<span id="cb25-40"><a href="#cb25-40" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"epoch </span><span class="sc">{</span>e <span class="op">+</span> <span class="dv">1</span><span class="sc">}</span><span class="ss">  |  training RMSE: </span><span class="sc">{</span><span class="bu">round</span>(rmse_train, <span class="dv">4</span>)<span class="sc">}</span><span class="ss"> (normalized: </span><span class="sc">{</span><span class="bu">round</span>(rmse_norm, <span class="dv">4</span>)<span class="sc">}</span><span class="ss">)"</span>)</span>
+<span id="cb25-41"><a href="#cb25-41" aria-hidden="true" tabindex="-1"></a>    train_rmse.append(rmse_train)</span>
+<span id="cb25-42"><a href="#cb25-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-43"><a href="#cb25-43" aria-hidden="true" tabindex="-1"></a>    <span class="co"># validation RMSE</span></span>
+<span id="cb25-44"><a href="#cb25-44" aria-hidden="true" tabindex="-1"></a>    sse <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb25-45"><a href="#cb25-45" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i, j <span class="kw">in</span> test_idxs:</span>
+<span id="cb25-46"><a href="#cb25-46" aria-hidden="true" tabindex="-1"></a>        r_ij_hat <span class="op">=</span> np.dot(U[:, i], V[:, j])</span>
+<span id="cb25-47"><a href="#cb25-47" aria-hidden="true" tabindex="-1"></a>        rating <span class="op">=</span> sigmoid_to_rating(sigmoid(r_ij_hat))</span>
+<span id="cb25-48"><a href="#cb25-48" aria-hidden="true" tabindex="-1"></a>        <span class="co"># rating_half_inc = round(rating * 2) / 2  # rounds to nearest 0.5</span></span>
+<span id="cb25-49"><a href="#cb25-49" aria-hidden="true" tabindex="-1"></a>        sse <span class="op">+=</span> (R[i, j] <span class="op">-</span> rating) <span class="op">**</span> <span class="dv">2</span></span>
+<span id="cb25-50"><a href="#cb25-50" aria-hidden="true" tabindex="-1"></a>    rmse_valid <span class="op">=</span> np.sqrt(sse <span class="op">/</span> test_idxs.shape[<span class="dv">0</span>])</span>
+<span id="cb25-51"><a href="#cb25-51" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"epoch </span><span class="sc">{</span>e <span class="op">+</span> <span class="dv">1</span><span class="sc">}</span><span class="ss">  |  validation RMSE: </span><span class="sc">{</span><span class="bu">round</span>(rmse_valid, <span class="dv">4</span>)<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb25-52"><a href="#cb25-52" aria-hidden="true" tabindex="-1"></a>    valid_rmse.append(rmse_valid)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>epoch 1  |  training RMSE: 0.994 (normalized: 0.8151)
-epoch 1  |  validation RMSE: 1.1056
-epoch 2  |  training RMSE: 0.8776 (normalized: 0.6703)
-epoch 2  |  validation RMSE: 0.9839
-epoch 3  |  training RMSE: 0.8583 (normalized: 0.6432)
-epoch 3  |  validation RMSE: 0.9673
-epoch 4  |  training RMSE: 0.8505 (normalized: 0.6319)
-epoch 4  |  validation RMSE: 0.9604
-epoch 5  |  training RMSE: 0.8466 (normalized: 0.6261)
-epoch 5  |  validation RMSE: 0.9566
-epoch 6  |  training RMSE: 0.8443 (normalized: 0.6227)
-epoch 6  |  validation RMSE: 0.9544
-epoch 7  |  training RMSE: 0.8429 (normalized: 0.6205)
-epoch 7  |  validation RMSE: 0.9528
-epoch 8  |  training RMSE: 0.8419 (normalized: 0.6189)
-epoch 8  |  validation RMSE: 0.9517
-epoch 9  |  training RMSE: 0.8412 (normalized: 0.6178)
-epoch 9  |  validation RMSE: 0.9508
-epoch 10  |  training RMSE: 0.8406 (normalized: 0.6169)
-epoch 10  |  validation RMSE: 0.9502
-epoch 11  |  training RMSE: 0.8402 (normalized: 0.6163)
-epoch 11  |  validation RMSE: 0.9496
-epoch 12  |  training RMSE: 0.8399 (normalized: 0.6158)
-epoch 12  |  validation RMSE: 0.9492
-epoch 13  |  training RMSE: 0.8396 (normalized: 0.6154)
-epoch 13  |  validation RMSE: 0.9488
-epoch 14  |  training RMSE: 0.8394 (normalized: 0.615)
-epoch 14  |  validation RMSE: 0.9485
-epoch 15  |  training RMSE: 0.8392 (normalized: 0.6147)
-epoch 15  |  validation RMSE: 0.9483
-epoch 16  |  training RMSE: 0.8391 (normalized: 0.6145)
-epoch 16  |  validation RMSE: 0.9481
-epoch 17  |  training RMSE: 0.8389 (normalized: 0.6143)
-epoch 17  |  validation RMSE: 0.9479
-epoch 18  |  training RMSE: 0.8388 (normalized: 0.6141)
-epoch 18  |  validation RMSE: 0.9477
-epoch 19  |  training RMSE: 0.8387 (normalized: 0.6139)
-epoch 19  |  validation RMSE: 0.9476
-epoch 20  |  training RMSE: 0.8386 (normalized: 0.6138)
-epoch 20  |  validation RMSE: 0.9475</code></pre>
+<pre><code>epoch 1  |  training RMSE: 1.0294 (normalized: 0.8594)
+epoch 1  |  validation RMSE: 1.1035
+epoch 2  |  training RMSE: 0.8958 (normalized: 0.6913)
+epoch 2  |  validation RMSE: 0.9757
+epoch 3  |  training RMSE: 0.8798 (normalized: 0.6679)
+epoch 3  |  validation RMSE: 0.9624
+epoch 4  |  training RMSE: 0.8735 (normalized: 0.6588)
+epoch 4  |  validation RMSE: 0.9573
+epoch 5  |  training RMSE: 0.8704 (normalized: 0.6542)
+epoch 5  |  validation RMSE: 0.9546
+epoch 6  |  training RMSE: 0.8685 (normalized: 0.6515)
+epoch 6  |  validation RMSE: 0.9529
+epoch 7  |  training RMSE: 0.8672 (normalized: 0.6498)
+epoch 7  |  validation RMSE: 0.9517
+epoch 8  |  training RMSE: 0.8663 (normalized: 0.6486)
+epoch 8  |  validation RMSE: 0.9508
+epoch 9  |  training RMSE: 0.8657 (normalized: 0.6477)
+epoch 9  |  validation RMSE: 0.9501
+epoch 10  |  training RMSE: 0.8652 (normalized: 0.6471)
+epoch 10  |  validation RMSE: 0.9496
+epoch 11  |  training RMSE: 0.8648 (normalized: 0.6466)
+epoch 11  |  validation RMSE: 0.9492
+epoch 12  |  training RMSE: 0.8645 (normalized: 0.6462)
+epoch 12  |  validation RMSE: 0.9488
+epoch 13  |  training RMSE: 0.8642 (normalized: 0.6458)
+epoch 13  |  validation RMSE: 0.9485
+epoch 14  |  training RMSE: 0.864 (normalized: 0.6456)
+epoch 14  |  validation RMSE: 0.9483
+epoch 15  |  training RMSE: 0.8639 (normalized: 0.6454)
+epoch 15  |  validation RMSE: 0.9481
+epoch 16  |  training RMSE: 0.8637 (normalized: 0.6452)
+epoch 16  |  validation RMSE: 0.9479
+epoch 17  |  training RMSE: 0.8636 (normalized: 0.6451)
+epoch 17  |  validation RMSE: 0.9477
+epoch 18  |  training RMSE: 0.8635 (normalized: 0.6449)
+epoch 18  |  validation RMSE: 0.9476
+epoch 19  |  training RMSE: 0.8634 (normalized: 0.6448)
+epoch 19  |  validation RMSE: 0.9475
+epoch 20  |  training RMSE: 0.8634 (normalized: 0.6447)
+epoch 20  |  validation RMSE: 0.9474</code></pre>
 </div>
 </div>
-<div class="cell" data-outputid="001d6205-383d-4e60-a432-c68317fecb98" data-execution_count="45">
+<div class="cell" data-outputid="bf201329-23b2-478b-b3df-139b634ca136">
 <div class="sourceCode cell-code" id="cb27"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
 <span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> matplotlib.ticker <span class="im">import</span> MaxNLocator</span>
 <span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> seaborn <span class="im">as</span> sns</span>
@@ -1207,23 +1210,23 @@ epoch 20  |  validation RMSE: 0.9475</code></pre>
 <span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a>iterations <span class="op">=</span> np.arange(<span class="dv">1</span>, epochs <span class="op">+</span> <span class="dv">1</span>, <span class="dv">1</span>)</span>
 <span id="cb27-7"><a href="#cb27-7" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb27-8"><a href="#cb27-8" aria-hidden="true" tabindex="-1"></a>ax <span class="op">=</span> plt.figure().gca()</span>
-<span id="cb27-9"><a href="#cb27-9" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="st">"loss"</span>)</span>
-<span id="cb27-10"><a href="#cb27-10" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">"epochs"</span>)</span>
-<span id="cb27-11"><a href="#cb27-11" aria-hidden="true" tabindex="-1"></a>plt.ylabel(<span class="st">"RMSE"</span>)</span>
-<span id="cb27-12"><a href="#cb27-12" aria-hidden="true" tabindex="-1"></a>plt.plot(iterations, train_rmse, <span class="st">"-o"</span>, color<span class="op">=</span><span class="st">"dodgerblue"</span>, label<span class="op">=</span><span class="st">"training"</span>)</span>
-<span id="cb27-13"><a href="#cb27-13" aria-hidden="true" tabindex="-1"></a>plt.plot(iterations, valid_rmse, <span class="st">"-o"</span>, color<span class="op">=</span><span class="st">"salmon"</span>, label<span class="op">=</span><span class="st">"validation"</span>)</span>
-<span id="cb27-14"><a href="#cb27-14" aria-hidden="true" tabindex="-1"></a>plt.legend(loc<span class="op">=</span><span class="st">"best"</span>)</span>
-<span id="cb27-15"><a href="#cb27-15" aria-hidden="true" tabindex="-1"></a>ax.xaxis.set_major_locator(MaxNLocator(integer<span class="op">=</span><span class="va">True</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb27-9"><a href="#cb27-9" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">"epochs"</span>)</span>
+<span id="cb27-10"><a href="#cb27-10" aria-hidden="true" tabindex="-1"></a>plt.ylabel(<span class="st">"RMSE"</span>)</span>
+<span id="cb27-11"><a href="#cb27-11" aria-hidden="true" tabindex="-1"></a>plt.plot(iterations, train_rmse, <span class="st">"-o"</span>, color<span class="op">=</span><span class="st">"dodgerblue"</span>, label<span class="op">=</span><span class="st">"training"</span>)</span>
+<span id="cb27-12"><a href="#cb27-12" aria-hidden="true" tabindex="-1"></a>plt.plot(iterations, valid_rmse, <span class="st">"-o"</span>, color<span class="op">=</span><span class="st">"salmon"</span>, label<span class="op">=</span><span class="st">"validation"</span>)</span>
+<span id="cb27-13"><a href="#cb27-13" aria-hidden="true" tabindex="-1"></a>plt.legend(loc<span class="op">=</span><span class="st">"best"</span>)</span>
+<span id="cb27-14"><a href="#cb27-14" aria-hidden="true" tabindex="-1"></a>ax.xaxis.set_major_locator(MaxNLocator(integer<span class="op">=</span><span class="va">True</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <p><img src="matrix_factorization_files/figure-html/cell-17-output-1.png" class="img-fluid"></p>
 </div>
 </div>
-<p>The baseline RMSE Netflix had achieved before the competition was <code>0.95</code> so this get’s close to that but has a lot of room for improvement. Several things that could improve are:</p>
+<p>The baseline RMSE that Netflix had achieved before the competition was <code>0.95</code>. This beats that by a small margin but the dataset is different so it’s not an apples to apples comparison. Also, the range of ratings goes down to <code>0.5</code> in the MovieLens dataset whereas prediction mapping was consistent with the paper and Netflix dataset which had a range of <code>[1, 5]</code>. This was mostly an exercise in understanding PMF and implementing an algorithm based off an objective function in a research paper. But, if we wanted to squeeze out more performance there are several things we could do:</p>
 <ul>
-<li>tune the lambda regularization coefficient</li>
-<li>use adaptive covariance</li>
-<li>separate covariance for users and movies</li>
-<li>use a diagonal covariance matrix (instead of spherical) to account for different variation between latent features</li>
+<li>map predictions to <code>[0.5, 5]</code></li>
+<li>use adaptive covariance (biggest gains)</li>
+<li>tune the lambda regularization coefficients</li>
+<li>separate covariances for users and movies</li>
+<li>diagonal covariance matrix (instead of spherical) to account for different variation between latent features</li>
 </ul>
 
 
