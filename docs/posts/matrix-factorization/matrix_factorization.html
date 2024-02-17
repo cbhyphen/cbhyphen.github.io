@@ -188,7 +188,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p>Let’s say we have <span class="math inline">\(n\)</span> users and <span class="math inline">\(m\)</span> movies and a ratings matrix <span class="math inline">\(R \in \mathbb{R}^{n \times m}\)</span> such that <span class="math inline">\(R_{i,j}\)</span> is the rating by user <span class="math inline">\(i\)</span> for movie <span class="math inline">\(j\)</span>. The user latent matrix is <span class="math inline">\(U \in \mathbb{R}^{d \times n}\)</span> and movie latent matrix <span class="math inline">\(V \in \mathbb{R}^{d \times m}\)</span> where <span class="math inline">\(d\)</span> is the latent space dimension and a tunable hyperparameter.</p>
 <p>Because <span class="math inline">\(R_{i,j}\)</span> is approximated by the product of latent vectors <span class="math inline">\(U_i\)</span> and <span class="math inline">\(V_j\)</span>, it is normally distributed with specified variance.</p>
 <p><span class="math display">\[R_{i,j} \sim N(U_i^{\intercal} V_j, \sigma ^ 2)\]</span></p>
-<p>The latent vectors <span class="math inline">\(U_i\)</span> and <span class="math inline">\(V_j\)</span> are also normally distributed with zero mean and spherical covariance (dimensionality <span class="math inline">\(d\)</span>) which is also tunable via the <span class="math inline">\(\lambda\)</span> parameter.</p>
+<p>The latent vectors <span class="math inline">\(U_i\)</span> and <span class="math inline">\(V_j\)</span> are also normally distributed with zero mean and spherical covariance (dimensionality <span class="math inline">\(d\)</span>) which is also tunable via the <span class="math inline">\(\lambda\)</span> parameter (defined further below).</p>
 <p><span class="math display">\[U_i \sim N(0, \sigma_u ^ 2 \mathbf{I})\]</span></p>
 <p><span class="math display">\[V_j \sim N(0, \sigma_v ^ 2 \mathbf{I})\]</span></p>
 <p>The likelihood function for the ratings matrix is defined as</p>
@@ -212,7 +212,11 @@ E = \frac{1}{2} \sum_i^n \sum_j^m I_{i,j}(R_{i,j} - U_i^\intercal V_j)^2 + \frac
 <p><span class="math display">\[
 \frac{\partial E}{\partial U_i} = \frac{1}{2}\sum_i^n \sum_j^m I_{i,j} \frac{\partial}{\partial U_i} \biggl[ (R_{i,j} - U_i^\intercal V_j)^2 \biggr] + \frac{\lambda_u}{2} \sum_i^n \frac{\partial}{\partial U_i} \biggl[ \Vert U_i \Vert ^ 2 \biggr]
 \]</span></p>
-<p>Summation over <span class="math inline">\(i\)</span> dissappears as there is only one term that is not a constant when differentiating with respect to <span class="math inline">\(U_i\)</span>. Now we can solve for this in closed form by setting the gradient to zero which gives direct update rules (gradient descent isn’t necessary).</p>
+<p>Summation over <span class="math inline">\(i\)</span> dissappears as there is only one term that is not a constant when differentiating with respect to <span class="math inline">\(U_i\)</span>.</p>
+<p><span class="math display">\[
+\frac{\partial E}{\partial U_i} = \lambda_u U_i - \sum_j^m I_{i,j}(R_{i,j} - U_i^\intercal V_j) V_j
+\]</span></p>
+<p>Now we can solve for this in closed form by setting the gradient to zero which gives direct update rules (gradient descent isn’t necessary).</p>
 <p><span class="math display">\[
 \lambda_u U_i - \sum_j^m I_{i,j}(R_{i,j} - U_i^\intercal V_j) V_j = 0
 \]</span></p>
