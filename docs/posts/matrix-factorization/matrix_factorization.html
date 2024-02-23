@@ -180,31 +180,44 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p>It’s pretty difficult to escape recommender systems in 2024. These days, we regularly get recommended things such as content from streaming services like Netflix and products from online shopping platforms like Amazon. Even if you don’t know the term recommender systems, there’s a good chance you understand what it does.</p>
 <p>I first heard about recommender systems in the context of the <a href="https://en.wikipedia.org/wiki/Netflix_Prize">Netflix prize</a> which was an open competition in 2009 for best collaborative filtering (CF) algorithm. The challenge was to improve upon Netflix’s existing recommender system by at least <code>0.10 RMSE</code> and the winner was awarded $1MM. Around that time, <a href="https://arxiv.org/abs/2209.01860">nearest neighbor techniques were popular</a> CF methods however, the winners of the Netflix prize proved that <a href="https://en.wikipedia.org/wiki/Matrix_factorization">matrix factorization</a> (MF) models were superior. MF models have some similarity to singular value decomposition (SVD) but can handle sparsity often seen with recommender system datasets whereas SVD can’t.</p>
 <p>To understand more about MF and recommender systems, in this post I’ll be creating an algorithm from scratch and evaluating it’s performance on the <a href="https://www.kaggle.com/datasets/grouplens/movielens-20m-dataset">MovieLens 20M dataset</a> (see <a href="https://grouplens.org/datasets/movielens/20m/">here</a> for more info). In particular, I’ll be implementing probabilistic matrix factorization (PMF) which was a seminal improvement over previous MF techniques because of it’s ability to handle sparsity and scale linearly with data (<a href="https://proceedings.neurips.cc/paper_files/paper/2007/file/d7322ed717dedf1eb4e6e52a37ea7bcd-Paper.pdf">see paper here</a>).</p>
-<p>Before diving into a mathematical derivation, let me provide some intuition about how PMF works.</p>
+<section id="intuition" class="level3">
+<h3 class="anchored" data-anchor-id="intuition">Intuition</h3>
+<p>Before diving into a mathematical derivation, let me provide some intuition about how MF works.</p>
 <p>In a ratings scenario we have some number of <code>n</code> users and <code>m</code> movies. This can be represented with an <code>n x m</code> matrix where values of the matrix are the ranking a person gave to a movie. For simplicity, let’s say the value is a 1 if they watched and liked the movie otherwise it’s a 0. Most people will only watch a handful of movies so there’ll be many missing values in the matrix.</p>
-<p>In the ratings matrix, each user can be described by the sparse vector of 1’s (mostly 0’s) that indicate the movies they liked (or the users that liked them in the case of movie vectors). But we can use a more compact representation similar to how one-hot encoded words are condensed via word embeddings. This allows for easier comparison if we want to use something like cosine similarity to compare users, for example.</p>
+<p>In the ratings matrix, each user can be described by the sparse vector of 1’s (mostly 0’s) that indicate the movies they liked (or the users that liked them in the case of movie vectors). But we can use a more compact representation similar to how one-hot encoded words are condensed via word embeddings. This allows for better comparison if we want to use something like cosine similarity to compare users, for example.</p>
 <p>The dense representations of users and movies will form two smaller matrices, an <code>n x d</code> user matrix and an <code>m x d</code> movie matrix where <code>d &lt;&lt; n</code> and <code>d &lt;&lt; m</code>. You can see from a quick dimensionality analysis that the product of these two smaller matrices could be an approximation for the original ratings matrix. In fact, we could minimize the difference between the approximation and the true rating in an optimization process. Once we’ve done that, we would even have an estimate of the rating a user might have given a movie even if they didn’t watch it. And the movie with the highest likelihood of a positive rating, well we can recommend that to a user. So at a high level, that’s exactly what I’m going to do here with MF.</p>
-<p>Time for formal mathematical definitions and a derivation of the algorithm. Note that the paper does define an objective function but leaves out any detailed description of a learning algorithm. So further below I derive the update rules.</p>
-<p>Let’s say we have <span class="math inline">\(n\)</span> users and <span class="math inline">\(m\)</span> movies and a ratings matrix <span class="math inline">\(R \in \mathbb{R}^{n \times m}\)</span> such that <span class="math inline">\(R_{i,j}\)</span> is the rating by user <span class="math inline">\(i\)</span> for movie <span class="math inline">\(j\)</span>. The user latent matrix is <span class="math inline">\(U \in \mathbb{R}^{d \times n}\)</span> and movie latent matrix <span class="math inline">\(V \in \mathbb{R}^{d \times m}\)</span> where <span class="math inline">\(d\)</span> is the latent space dimension and a tunable hyperparameter.</p>
-<p>Because <span class="math inline">\(R_{i,j}\)</span> is approximated by the product of latent vectors <span class="math inline">\(U_i\)</span> and <span class="math inline">\(V_j\)</span>, it is normally distributed with specified variance.</p>
+</section>
+<section id="map-and-objective-function" class="level3">
+<h3 class="anchored" data-anchor-id="map-and-objective-function">MAP and Objective Function</h3>
+<p>Time for more formal mathematical definitions. Like I mentioned above, we have <span class="math inline">\(n\)</span> users and <span class="math inline">\(m\)</span> movies as well as a ratings matrix <span class="math inline">\(R \in \mathbb{R}^{n \times m}\)</span> such that <span class="math inline">\(R_{i,j}\)</span> is the rating by user <span class="math inline">\(i\)</span> for movie <span class="math inline">\(j\)</span>. The user latent matrix is <span class="math inline">\(U \in \mathbb{R}^{d \times n}\)</span> and movie latent matrix <span class="math inline">\(V \in \mathbb{R}^{d \times m}\)</span> where <span class="math inline">\(d\)</span> is the latent space dimension and a tunable hyperparameter.</p>
+<p>The author’s of the paper make an assumption on the distribution of <span class="math inline">\(R_{i,j}\)</span>, which is the product of latent vectors <span class="math inline">\(U_i\)</span> and <span class="math inline">\(V_j\)</span>.</p>
 <p><span class="math display">\[R_{i,j} \sim N(U_i^{\intercal} V_j, \sigma ^ 2)\]</span></p>
-<p>The latent vectors <span class="math inline">\(U_i\)</span> and <span class="math inline">\(V_j\)</span> are also normally distributed with zero mean and spherical covariance (dimensionality <span class="math inline">\(d\)</span>) which is also tunable via the <span class="math inline">\(\lambda\)</span> parameter (defined further below).</p>
+<p>And the latent vectors <span class="math inline">\(U_i\)</span> and <span class="math inline">\(V_j\)</span> are also assumed to be normally distributed with zero mean and spherical covariance (dimensionality <span class="math inline">\(d\)</span>). You don’t always hear this term “spherical covariance” but it essentially means all dimensions are independent with same mean and variance (i.e.&nbsp;IID). The variance is also tunable via the <span class="math inline">\(\lambda\)</span> parameter (defined further below).</p>
 <p><span class="math display">\[U_i \sim N(0, \sigma_u ^ 2 \mathbf{I})\]</span></p>
 <p><span class="math display">\[V_j \sim N(0, \sigma_v ^ 2 \mathbf{I})\]</span></p>
-<p>The likelihood function for the ratings matrix is defined as</p>
+<p>Now we can define the likelihood function for the entire ratings matrix</p>
 <p><span class="math display">\[
 p(R|U,V,\sigma^2) = \prod\limits_{i}^{n}\prod\limits_{j}^{m} p(R_{i,j} | U_i, V_j)
 \]</span></p>
-<p>and prior probabilities on latent matrices</p>
+<p>as well as prior probabilities on the latent matrices.</p>
 <p><span class="math display">\[
 p(U|\sigma_u^2) = \prod\limits_{i}^{n} p(U_i) \; , \quad p(V|\sigma_v^2) = \prod\limits_j^m p(V_i)
 \]</span></p>
-<p>The product of the likelihood and priors define the posterior distribution, and the MAP solution ultimately results in the following objective function as described in the paper</p>
+<p>In <a href="https://cbhyphen.github.io/posts/gaussian-bayes-classifier/gaussian_bayes_classifier.html#maximum-a-posteriori">a previous post</a> I went through a process to derive a MAP estimate. This is similar. Here we can also approximate the posterior by the product of the likelihood and priors</p>
+<p><span class="math display">\[
+p(U,V|R,\sigma^2, \sigma_u^2, \sigma_v^2) ≈ p(R|U,V,\sigma^2) \cdot p(U|\sigma_u^2) \cdot p(V|\sigma_v^2)
+\]</span></p>
+<p>and because summations are easier to work with than products, we take the log of the posterior (see paper for details) and maximize that to derive the MAP solution. After some re-arranging for a minimization objective, we would arrive at the following objective function as described in the paper.</p>
 <p><span class="math display">\[
 E = \frac{1}{2} \sum_i^n \sum_j^m I_{i,j}(R_{i,j} - U_i^\intercal V_j)^2 + \frac{\lambda_u}{2} \sum_i^n \Vert U_i \Vert ^ 2 +  \frac{\lambda_v}{2} \sum_j^m \Vert V_j \Vert ^ 2
 \]</span></p>
-<p>where <span class="math inline">\(I_{i,j}\)</span> is an indicator function if user <span class="math inline">\(i\)</span> has rated movie <span class="math inline">\(j\)</span>, and <span class="math inline">\(\lambda_u = \frac{\sigma^2}{\sigma_u^2}\)</span> and similarly <span class="math inline">\(\lambda_v = \frac{\sigma^2}{\sigma_v^2}\)</span>.</p>
-<p>Again, the paper defines this objective function to minimize but doesn’t go into any detail about the optimization procedure. Having two unknown latent matrices, the objective function is not convex. However, if one of the matrices is fixed, then the other turns into a convex optimization problem. So we can take turns with updates to <span class="math inline">\(U\)</span> and <span class="math inline">\(V\)</span> by performing an alternating least squares optimization (ALS). These links by <a href="https://engineering.fb.com/2015/06/02/core-infra/recommending-items-to-more-than-a-billion-people/">Facebook</a> and <a href="https://developers.google.com/machine-learning/recommendation/collaborative/matrix">Google</a> were helpful for confirming this important detail.</p>
+<p>where <span class="math inline">\(I_{i,j}\)</span> is an indicator function if user <span class="math inline">\(i\)</span> has rated movie <span class="math inline">\(j\)</span>, and <span class="math inline">\(\lambda_u = \frac{\sigma^2}{\sigma_u^2}\)</span> and similarly <span class="math inline">\(\lambda_v = \frac{\sigma^2}{\sigma_v^2}\)</span>. The indicator function is an important addition in the objective function as it allows us to ignore the vast number of unrated movies for each user.</p>
+<p>An interesting aside here is that the priors are essentially adding L2 regularization terms in the objective function. If we were to maximize the likelihood only (i.e.&nbsp;MLE) we wouldn’t have these terms.</p>
+<p>Ok, so the paper gets us to this objective function but leaves out any description of a learning algorithm. So now we have to derive update rules in order to learn values for <span class="math inline">\(U\)</span> and <span class="math inline">\(V\)</span>.</p>
+</section>
+<section id="derivation-of-learning-algorithm" class="level3">
+<h3 class="anchored" data-anchor-id="derivation-of-learning-algorithm">Derivation of Learning Algorithm</h3>
+<p>If you look at the objective function, you’ll see we have two unknown latent matrices <span class="math inline">\(U\)</span> and <span class="math inline">\(V\)</span>. Because of this, the objective function is not convex. However, if one of the matrices is fixed, then the other turns into a convex optimization problem. So we can take turns with updates to <span class="math inline">\(U\)</span> and <span class="math inline">\(V\)</span> by performing an alternating coordinate descent. Note that in this context it is also referred to least squares optimization (ALS). These links by <a href="https://engineering.fb.com/2015/06/02/core-infra/recommending-items-to-more-than-a-billion-people/">Facebook</a> and <a href="https://developers.google.com/machine-learning/recommendation/collaborative/matrix">Google</a> were helpful for confirming this important optimization detail.</p>
 <p>To find the update rules, we need to derive partial derivatives for <span class="math inline">\(U_i\)</span> and <span class="math inline">\(V_j\)</span> with respect to the objective function. So, time to dive into a little matrix calculus with a derivation for <span class="math inline">\(\frac{\partial E}{\partial U_i}\)</span>.</p>
 <p><span class="math display">\[
 \frac{\partial E}{\partial U_i} = \frac{\partial}{\partial U_i} \biggl[ \frac{1}{2}\sum_i^n \sum_j^m I_{i,j}(R_{i,j} - U_i^\intercal V_j)^2 \biggr] + \frac{\partial}{\partial U_i} \biggl[ \frac{\lambda_u}{2} \sum_i^n \Vert U_i \Vert ^ 2 \biggr] + \frac{\partial}{\partial U_i} \biggl[ \frac{\lambda_v}{2} \sum_j^m \Vert V_j \Vert ^ 2 \biggr]
@@ -234,7 +247,11 @@ U_i = \sum_j^m I_{i,j} R_{i,j} V_j \biggl( \lambda_u \mathbf{I} + \sum_j^m I_{i,
 <p><span class="math display">\[
 V_j = \sum_i^n I_{i,j} R_{i,j} U_i \biggl(\lambda_v \mathbf{I} + \sum_i^n I_{i,j} U_i U_i^\intercal \biggr)^{-1}
 \]</span></p>
-<p>Armed with these update rules we can perform ALS which again entails updating one variable while holding the other constant and vice-versa.</p>
+<p>There is another interesting aside here about the priors. If we were to do MLE instead of MAP we’d get a similar update rule except for the <span class="math inline">\(\lambda_v \mathbf{I}\)</span> term. If you’ve ever tried to implement your own <a href="https://en.wikipedia.org/wiki/Ordinary_least_squares#Matrix/vector_formulation">least squares solution</a> in closed form, you may remember that regression coefficients require inverting the matrix <span class="math inline">\((X^\intercal X)^{-1}\)</span>. Sometimes your data doesn’t behave well and you end up with a non-invertible matrix (because your determinant is zero). The <span class="math inline">\(\lambda_v \mathbf{I}\)</span> term is essentially adding some values to the diagonal of the matrix which makes it less likely to have a zero determinant (i.e.&nbsp;more stable).</p>
+<p>Ok, so armed with these update rules now we can dive into some code.</p>
+</section>
+<section id="code" class="level3">
+<h3 class="anchored" data-anchor-id="code">Code</h3>
 <div class="cell" data-outputid="c742621f-101d-4448-ce6d-823f94e4201a">
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># !wget https://files.grouplens.org/datasets/movielens/ml-latest-small.zip</span></span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="op">!</span>wget https:<span class="op">//</span>files.grouplens.org<span class="op">/</span>datasets<span class="op">/</span>movielens<span class="op">/</span>ml<span class="op">-</span><span class="dv">10</span><span class="er">m</span>.<span class="bu">zip</span></span>
@@ -1014,7 +1031,7 @@ missing values in ratings matrix: 98.7%</code></pre>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co"># fill test indices with NA in training data</span></span>
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co"># fill test indices with nan in training data</span></span>
 <span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>R_train <span class="op">=</span> R.copy()</span>
 <span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, j <span class="kw">in</span> test_idxs:</span>
@@ -1042,7 +1059,7 @@ missing values in ratings matrix: 98.7%</code></pre>
 <span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a><span class="co">#  adaptive prior w/ spherical covariances lambda U = 0.01, lambda V = 0.001</span></span>
 <span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a><span class="co">#  constrained PMF lambda = 0.002</span></span>
 <span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>d <span class="op">=</span> <span class="dv">30</span></span>
-<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>lambda_u <span class="op">=</span> <span class="dv">20</span>  <span class="co"># higher better 20</span></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>lambda_u <span class="op">=</span> <span class="dv">20</span>  <span class="co"># higher better, just some random experimentation here</span></span>
 <span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>lambda_v <span class="op">=</span> <span class="dv">20</span></span>
 <span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a>sigma_r <span class="op">=</span> <span class="dv">1</span>  <span class="co"># np.std(R[~np.isnan(R)])</span></span>
 <span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a>sigma_u <span class="op">=</span> np.sqrt(sigma_r<span class="op">**</span><span class="dv">2</span> <span class="op">/</span> lambda_u)  <span class="co"># assume sigma=1 for ratings matrix</span></span>
@@ -1098,12 +1115,12 @@ missing values in ratings matrix: 98.7%</code></pre>
 <span id="cb23-31"><a href="#cb23-31" aria-hidden="true" tabindex="-1"></a>    movie_matrix[:, j] <span class="op">=</span> sum_ru <span class="op">@</span> np.linalg.inv(sum_uu <span class="op">+</span> np.identity(d) <span class="op">*</span> lambda_v)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="co"># use logistic function since ratings prediction is zero mean</span></span>
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="co"># use logistic function since ratings prediction is zero mean (same as paper)</span></span>
 <span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> sigmoid(x):</span>
 <span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">1</span> <span class="op">/</span> (<span class="dv">1</span> <span class="op">+</span> np.exp(<span class="op">-</span>x))</span>
 <span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a><span class="co"># map sigmoid to range [1, 5] from paper</span></span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a><span class="co"># map sigmoid to range [1, 5] (same as paper)</span></span>
 <span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a><span class="co"># there are 0.5 ratings so this isn't perfect</span></span>
 <span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb24-9"><a href="#cb24-9" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> sigmoid_to_rating(x, k<span class="op">=</span><span class="dv">5</span>):</span>
@@ -1228,12 +1245,13 @@ epoch 20  |  validation RMSE: 0.9474</code></pre>
 <ul>
 <li>map predictions to <code>[0.5, 5]</code></li>
 <li>use adaptive covariance (biggest gains)</li>
-<li>tune the lambda regularization coefficients</li>
+<li>tune the lambda regularization coefficients (I started with <code>1</code> and only went up/down by an order of magnitude)</li>
 <li>separate covariances for users and movies</li>
 <li>diagonal covariance matrix (instead of spherical) to account for different variation between latent features</li>
 </ul>
 
 
+</section>
 
 </main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
