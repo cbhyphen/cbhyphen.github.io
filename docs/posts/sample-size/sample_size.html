@@ -6,8 +6,10 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
+<meta name="author" content="chris">
+<meta name="dcterms.date" content="2024-03-31">
 
-<title>cbhyphen.github.io - cbhyphen</title>
+<title>cbhyphen.github.io - Sample Size for A/B Testing</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -23,24 +25,22 @@ ul.task-list li input[type="checkbox"] {
 </style>
 
 
-<script src="site_libs/quarto-nav/quarto-nav.js"></script>
-<script src="site_libs/quarto-nav/headroom.min.js"></script>
-<script src="site_libs/clipboard/clipboard.min.js"></script>
-<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
-<script src="site_libs/quarto-search/fuse.min.js"></script>
-<script src="site_libs/quarto-search/quarto-search.js"></script>
-<meta name="quarto:offset" content="./">
-<script src="site_libs/quarto-listing/list.min.js"></script>
-<script src="site_libs/quarto-listing/quarto-listing.js"></script>
-<script src="site_libs/quarto-html/quarto.js"></script>
-<script src="site_libs/quarto-html/popper.min.js"></script>
-<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
-<script src="site_libs/quarto-html/anchor.min.js"></script>
-<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
-<script src="site_libs/bootstrap/bootstrap.min.js"></script>
-<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../">
+<script src="../../site_libs/quarto-html/quarto.js"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -61,50 +61,21 @@ ul.task-list li input[type="checkbox"] {
     "search-label": "Search"
   }
 }</script>
-<script>
-
-  window.document.addEventListener("DOMContentLoaded", function (_event) {
-    const listingTargetEl = window.document.querySelector('#listing-listing .list');
-    if (!listingTargetEl) {
-      // No listing discovered, do not attach.
-      return; 
-    }
-
-    const options = {
-      valueNames: ['listing-date','listing-title','listing-author','listing-image','listing-description','listing-categories',{ data: ['index'] },{ data: ['categories'] },{ data: ['listing-date-sort'] },{ data: ['listing-file-modified-sort'] }],
-      
-      searchColumns: ["listing-date","listing-title","listing-author","listing-image","listing-description","listing-categories"],
-    };
-
-    window['quarto-listings'] = window['quarto-listings'] || {};
-    window['quarto-listings']['listing-listing'] = new List('listing-listing', options);
-
-    if (window['quarto-listing-loaded']) {
-      window['quarto-listing-loaded']();
-    }
-  });
-
-  window.addEventListener('hashchange',() => {
-    if (window['quarto-listing-loaded']) {
-      window['quarto-listing-loaded']();
-    }
-  })
-  </script>
 
   <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
 
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="../../styles.css">
 </head>
 
-<body class="nav-fixed">
+<body class="nav-fixed fullcontent">
 
 <div id="quarto-search-results"></div>
   <header id="quarto-header" class="headroom fixed-top">
     <nav class="navbar navbar-expand-lg navbar-dark ">
       <div class="navbar-container container-fluid">
       <div class="navbar-brand-container">
-    <a class="navbar-brand" href="./index.html">
+    <a class="navbar-brand" href="../../index.html">
     <span class="navbar-title">cbhyphen.github.io</span>
     </a>
   </div>
@@ -115,7 +86,7 @@ ul.task-list li input[type="checkbox"] {
           <div class="collapse navbar-collapse" id="navbarCollapse">
             <ul class="navbar-nav navbar-nav-scroll ms-auto">
   <li class="nav-item">
-    <a class="nav-link" href="./about.html" rel="" target="">
+    <a class="nav-link" href="../../about.html" rel="" target="">
  <span class="menu-text">about</span></a>
   </li>  
   <li class="nav-item compact">
@@ -133,183 +104,58 @@ ul.task-list li input[type="checkbox"] {
 <!-- content -->
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
-    <div class="quarto-title column-page-left">
-      <h1 class="title">cbhyphen</h1>
+    <div class="quarto-title column-body">
+      <h1 class="title">Sample Size for A/B Testing</h1>
                       </div>
   </div>
     
   
   <div class="quarto-title-meta">
 
+      <div>
+      <div class="quarto-title-meta-heading">Author</div>
+      <div class="quarto-title-meta-contents">
+               <p>chris </p>
+            </div>
+    </div>
       
+      <div>
+      <div class="quarto-title-meta-heading">Published</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date">March 31, 2024</p>
+      </div>
+    </div>
     
       
     </div>
     
   
-  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-full page-navbar">
+  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
 <!-- sidebar -->
 <!-- margin-sidebar -->
-    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
-        
-    <h5 class="quarto-listing-category-title">Categories</h5><div class="quarto-listing-category category-default"><div class="category" data-category="">All <span class="quarto-category-count">(5)</span></div></div></div>
+    
 <!-- main -->
-<main class="content quarto-banner-title-block column-page-left" id="quarto-document-content">
+<main class="content quarto-banner-title-block" id="quarto-document-content">
 
 
 
 
+<p>outline:</p>
+<ul>
+<li>work convo that led to reviving old project</li>
+<li>a/b testing layman terms</li>
+<li>examples; rate of … conversions, approvals, etc</li>
+<li>number of binary outcomes -&gt; binomial -&gt; normal approximation</li>
+<li>why sample size is important and minimum detectable effect</li>
+<li>derivation (with figures/graphics) and show calculator</li>
+</ul>
+<p><span class="math display">\[X \sim B(n, p)\]</span></p>
+<p>where <span class="math inline">\(n\)</span> is number of trials and <span class="math inline">\(p\)</span> is the probability of a success</p>
+<p>the expected value <span class="math inline">\(E[X] = np\)</span> and variance <span class="math inline">\(Var(X) = np(1 - p)\)</span></p>
 
 
 
-
-<div class="quarto-listing quarto-listing-container-default" id="listing-listing">
-<div class="list quarto-listing-default">
-<div class="quarto-post image-right" data-index="0" data-listing-date-sort="1711864800000" data-listing-file-modified-sort="1711941529667" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="1">
-<div class="thumbnail">
-<p><a href="./posts/sample-size/sample_size.html"> <div class="listing-item-img-placeholder card-img-top" >&nbsp;</div> </a></p>
-</div>
-<div class="body">
-<a href="./posts/sample-size/sample_size.html">
-<h3 class="no-anchor listing-title">
-Sample Size for A/B Testing
-</h3>
-<div class="listing-subtitle">
-
-</div>
-<div class="listing-description">
-outline:
-</div>
-</a>
-</div>
-<div class="metadata">
-<a href="./posts/sample-size/sample_size.html">
-<div class="listing-date">
-Mar 31, 2024
-</div>
-<div class="listing-author">
-chris
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="1" data-listing-date-sort="1706166000000" data-listing-file-modified-sort="1708704050240" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="8">
-<div class="thumbnail">
-<p><a href="./posts/matrix-factorization/matrix_factorization.html"> <p class="card-img-top"><img src="posts\matrix-factorization\matrix_factorization_files\figure-html\cell-17-output-1.png"  class="thumbnail-image card-img"/></p> </a></p>
-</div>
-<div class="body">
-<a href="./posts/matrix-factorization/matrix_factorization.html">
-<h3 class="no-anchor listing-title">
-Matrix Factorization for Recommender Systems
-</h3>
-<div class="listing-subtitle">
-
-</div>
-<div class="listing-description">
-It’s pretty difficult to escape recommender systems in 2024. These days, we regularly get recommended things such as content from streaming…
-</div>
-</a>
-</div>
-<div class="metadata">
-<a href="./posts/matrix-factorization/matrix_factorization.html">
-<div class="listing-date">
-Jan 25, 2024
-</div>
-<div class="listing-author">
-chris
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="2" data-listing-date-sort="1701673200000" data-listing-file-modified-sort="1702313381253" data-listing-date-modified-sort="1701673200000" data-listing-reading-time-sort="7">
-<div class="thumbnail">
-<p><a href="./posts/pytorch-fxgraph-qat/pytorch_fxgraph_qat.html"> <p class="card-img-top"><img src="posts\pytorch-fxgraph-qat\pytorch_fxgraph_qat_files\figure-html\cell-16-output-3.png"  class="thumbnail-image card-img"/></p> </a></p>
-</div>
-<div class="body">
-<a href="./posts/pytorch-fxgraph-qat/pytorch_fxgraph_qat.html">
-<h3 class="no-anchor listing-title">
-FX Graph Mode Quantization in PyTorch
-</h3>
-<div class="listing-subtitle">
-
-</div>
-<div class="listing-description">
-Following up on the last post I did about eager mode quantization in pytorch, in this post I’ll be using pytorch’s FX graph mode quantization to quantize the same R-CNN. There are…
-</div>
-</a>
-</div>
-<div class="metadata">
-<a href="./posts/pytorch-fxgraph-qat/pytorch_fxgraph_qat.html">
-<div class="listing-date">
-Dec 4, 2023
-</div>
-<div class="listing-author">
-chris
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="3" data-listing-date-sort="1700031600000" data-listing-file-modified-sort="1701271892152" data-listing-date-modified-sort="1701241200000" data-listing-reading-time-sort="10">
-<div class="thumbnail">
-<p><a href="./posts/pytorch-eager-qat/pytorch_eager_qat.html"> <p class="card-img-top"><img src="posts\pytorch-eager-qat\pytorch_eager_qat_files\figure-html\cell-23-output-2.png"  class="thumbnail-image card-img"/></p> </a></p>
-</div>
-<div class="body">
-<a href="./posts/pytorch-eager-qat/pytorch_eager_qat.html">
-<h3 class="no-anchor listing-title">
-Eager Mode Quantization in PyTorch: Quantizing the Backbone of an Object Detection Model
-</h3>
-<div class="listing-subtitle">
-
-</div>
-<div class="listing-description">
-Model quantization is a powerful tool to reduce memory and compute by using lower precision data types. Although I’m…
-</div>
-</a>
-</div>
-<div class="metadata">
-<a href="./posts/pytorch-eager-qat/pytorch_eager_qat.html">
-<div class="listing-date">
-Nov 15, 2023
-</div>
-<div class="listing-author">
-chris
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="4" data-listing-date-sort="1696140000000" data-listing-file-modified-sort="1702308485322" data-listing-date-modified-sort="1701241200000" data-listing-reading-time-sort="6">
-<div class="thumbnail">
-<p><a href="./posts/gaussian-bayes-classifier/gaussian_bayes_classifier.html"> <p class="card-img-top"><img src="posts\gaussian-bayes-classifier\gaussian_bayes_classifier_files\figure-html\cell-3-output-1.png"  class="thumbnail-image card-img"/></p> </a></p>
-</div>
-<div class="body">
-<a href="./posts/gaussian-bayes-classifier/gaussian_bayes_classifier.html">
-<h3 class="no-anchor listing-title">
-Gaussian Bayesian Classifiers
-</h3>
-<div class="listing-subtitle">
-
-</div>
-<div class="listing-description">
-Even though I studied (and revisited, and revisited..) Bayesian statistics several times over the years, I’ve always felt that it wasn’t an intuitive paradigm. Specifically…
-</div>
-</a>
-</div>
-<div class="metadata">
-<a href="./posts/gaussian-bayes-classifier/gaussian_bayes_classifier.html">
-<div class="listing-date">
-Oct 1, 2023
-</div>
-<div class="listing-author">
-chris
-</div>
-</a>
-</div>
-</div>
-</div>
-<div class="listing-no-matching d-none">
-No matching items
-</div>
-</div></main> <!-- /main -->
+</main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
 window.document.addEventListener("DOMContentLoaded", function (event) {
   const toggleBodyColorMode = (bsSheetEl) => {
