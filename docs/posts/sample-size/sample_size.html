@@ -9,7 +9,7 @@
 <meta name="author" content="chris">
 <meta name="dcterms.date" content="2024-03-31">
 
-<title>cbhyphen.github.io - Sample Size for A/B Testing</title>
+<title>cbhyphen.github.io - Sample Size for A/B Hypothesis Testing</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -21,6 +21,40 @@ ul.task-list li input[type="checkbox"] {
   width: 0.8em;
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
 }
 </style>
 
@@ -105,7 +139,7 @@ ul.task-list li input[type="checkbox"] {
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">Sample Size for A/B Testing</h1>
+      <h1 class="title">Sample Size for A/B Hypothesis Testing</h1>
                       </div>
   </div>
     
@@ -140,18 +174,136 @@ ul.task-list li input[type="checkbox"] {
 
 
 
-<p>outline:</p>
-<ul>
-<li>work convo that led to reviving old project</li>
-<li>a/b testing layman terms</li>
-<li>examples; rate of … conversions, approvals, etc</li>
-<li>number of binary outcomes -&gt; binomial -&gt; normal approximation</li>
-<li>why sample size is important and minimum detectable effect</li>
-<li>derivation (with figures/graphics) and show calculator</li>
-</ul>
-<p><span class="math display">\[X \sim B(n, p)\]</span></p>
-<p>where <span class="math inline">\(n\)</span> is number of trials and <span class="math inline">\(p\)</span> is the probability of a success</p>
-<p>the expected value <span class="math inline">\(E[X] = np\)</span> and variance <span class="math inline">\(Var(X) = np(1 - p)\)</span></p>
+<p>I had a conversation at work with a colleague about evaluation metrics and if small model improvements were actually statistically significant. After some research we concluded that sampling wasn’t an effective strategy, given the small amount of data, but it reminded me of A/B testing. A few years back I had derived a sample size calculator but didn’t fully document it so that’s what I intend to do here. Before I dive into the sample size derivation, I’ll briefly go over hypothesis testing in the A/B framework.</p>
+<p>Typically, an A/B test is performed to evaluate the effectiveness of a treatment. The treatment could be a change to website, a change to a process, etc, and the metric used to compare the control and treatment groups might be sign-up rate, denial rate, etc. For this hypothetical example I’ll be using click-through rate to evaluate a change to a website.</p>
+<p>Before performing an A/B test, there are a few parameters which are either already known or defined. You should already have the current click-through rate. And prior to running the test, the type I and II error rates need to be defined as well as minimum detectable change. Type I error is the false positive rate (i.e.&nbsp;accept there was a change due to the treatment when there wasn’t) and type II error is the false negative rate (i.e.&nbsp;reject there was a change due to the treatment when there was). So we will assume that these parameters are known. What isn’t known is the sample size of the test and the critical value where the null hypothesis is accepted or rejected…</p>
+<p><strong>why sample size is important</strong></p>
+<p>… ok now onto some more formal definitions. The number of clicks would be a binomial random variable which we can define as</p>
+<p><span class="math display">\[ X \sim B(n, p) \]</span></p>
+<p>where <span class="math inline">\(n\)</span> is number of trials and <span class="math inline">\(p\)</span> is the probability of a success. By definition, the expected value and variance for this random variable are</p>
+<p><span class="math display">\[ E[X] = np, \ Var(X) = np(1 - p) \]</span></p>
+<p>but we are more interested in the rate of clicks so we can define a new variable</p>
+<p><span class="math display">\[ Y = \frac{X}{n} \]</span></p>
+<p>and by properties of <a href="https://en.wikipedia.org/wiki/Expected_value#Properties">expectation</a> and <a href="https://en.wikipedia.org/wiki/Variance#Basic_properties">variance</a></p>
+<p><span class="math display">\[ E[Y] = p, \ Var(Y) = \frac{p(1 - p)}{n} \]</span></p>
+<p>so we have a formal mathematical definition of the distribution for click-through rate. Now onto hypothesis testing.</p>
+<p>Let’s further define the current conversion rate as <span class="math inline">\(Y_c\)</span> and the treatment group rate as <span class="math inline">\(Y_e\)</span>. For convenience we can define a new variable that is the difference between the two <span class="math inline">\(Y_d = Y_e - Y_c\)</span>. In our test, let’s say the null hypothesis is that the expected value of this difference is zero:</p>
+<p><span class="math display">\[ H_0: E[Y_d] = 0 \]</span></p>
+<p>and the alternative hypothesis that the difference is equal to a value <span class="math inline">\(d\)</span> (i.e.&nbsp;the treatment had a positive effect):</p>
+<p><span class="math display">\[ H_a: E[Y_d] = d \]</span></p>
+<p>in practice, the alternative hypothesis would be <span class="math inline">\(\ge\)</span> or <span class="math inline">\(\le\)</span> instead of <span class="math inline">\(=\)</span> but I’m ignoring that for now. At this point, it’s also important to note that there is a difference between test types; one sided or two sided. One sided only evaluates for a change in one direction whereas two sided tests in both directions (i.e.&nbsp;could be less than <span class="math inline">\(d\)</span> or greater than <span class="math inline">\(d\)</span>). This is important because it affects the critical value and thus sample size (<strong>elaborate here or later…</strong>).</p>
+<p>let’s show graphically what the test statistic distribution looks like under the null and alternative hypothesis along with type I and type II errors as well as the critical value <span class="math inline">\(x_d\)</span>. note that when the number of binomial samples is large enough, we can <a href="https://en.wikipedia.org/wiki/Binomial_distribution#Normal_approximation">approximate it with a normal distribution</a>. this means that we can use Z-scores and assume the distribution is Gaussian.</p>
+<div class="cell" data-outputid="11da83b7-a937-40bb-a412-2c1db68ea4f5" data-execution_count="116">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>mu_null <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="dv">100000</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>alpha <span class="ot">&lt;-</span> <span class="fl">0.05</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>z_alpha <span class="ot">&lt;-</span> <span class="fu">qnorm</span>(<span class="dv">1</span> <span class="sc">-</span> alpha)</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>density_null <span class="ot">&lt;-</span> <span class="fu">density</span>(<span class="fu">rnorm</span>(n, mu_null, <span class="dv">1</span>))</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>df_null <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">x =</span> density_null<span class="sc">$</span>x, <span class="at">y =</span> density_null<span class="sc">$</span>y)</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>() <span class="sc">+</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_ribbon</span>(<span class="at">data =</span> df_null[df_null<span class="sc">$</span>x <span class="sc">&lt;</span> z_alpha, ],</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>              <span class="fu">aes</span>(<span class="at">x =</span> x, <span class="at">ymax =</span> y, <span class="at">fill =</span> <span class="st">"no change (true negative)"</span>),</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>              <span class="at">ymin =</span> <span class="dv">0</span>, <span class="at">alpha =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_ribbon</span>(<span class="at">data =</span> df_null[df_null<span class="sc">$</span>x <span class="sc">&gt;=</span> z_alpha, ],</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>              <span class="fu">aes</span>(<span class="at">x =</span> x, <span class="at">ymax =</span> y, <span class="at">fill =</span> <span class="st">"type I error (false positive)"</span>),</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>              <span class="at">ymin =</span> <span class="dv">0</span>, <span class="at">alpha =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_manual</span>(<span class="at">values =</span> <span class="fu">c</span>(<span class="st">"black"</span>, <span class="st">"red"</span>)) <span class="sc">+</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_segment</span>(<span class="fu">aes</span>(<span class="at">x =</span> mu_null, <span class="at">y =</span> <span class="dv">0</span>, <span class="at">xend =</span> z_alpha, <span class="at">yend =</span> <span class="dv">0</span>)) <span class="sc">+</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_text</span>(<span class="fu">aes</span>(<span class="fl">0.75</span>, <span class="dv">0</span>, <span class="at">label =</span> <span class="st">"d_alpha"</span>, <span class="at">vjust =</span> <span class="sc">-</span><span class="dv">1</span>)) <span class="sc">+</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="dv">0</span>, <span class="at">linetype=</span><span class="st">"dashed"</span>, <span class="at">linewidth =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> z_alpha, <span class="at">linetype=</span><span class="st">"dashed"</span>, <span class="at">linewidth =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_text</span>(<span class="fu">aes</span>(<span class="at">x =</span> <span class="fl">1.9</span>, <span class="at">label =</span> <span class="st">"</span><span class="sc">\n</span><span class="st">x_d"</span>, <span class="at">y =</span> <span class="dv">0</span>, <span class="at">vjust =</span> <span class="fl">0.75</span>), <span class="at">angle=</span><span class="dv">0</span>) <span class="sc">+</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">limits =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">3</span>, <span class="dv">3</span>)) <span class="sc">+</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">axis.text.x=</span><span class="fu">element_blank</span>(), <span class="at">axis.ticks.x=</span><span class="fu">element_blank</span>(),</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>        <span class="at">axis.text.y=</span><span class="fu">element_blank</span>(), <span class="at">axis.ticks.y=</span><span class="fu">element_blank</span>(), <span class="at">axis.title.y=</span><span class="fu">element_blank</span>(),</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>        <span class="at">legend.title=</span><span class="fu">element_blank</span>()) <span class="sc">+</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>   <span class="fu">xlab</span>(mu_null)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<p><img src="sample_size_files/figure-html/cell-2-output-1.png" class="img-fluid"></p>
+</div>
+</div>
+<p>note that above I’ve also defined the distance from the mean under the null to the critical value as <span class="math inline">\(d_\alpha\)</span>. now let’s look at the alternative hypothesis when <span class="math inline">\(d = 0.4\)</span></p>
+<div class="cell" data-outputid="7d830bb9-da16-449a-bff9-91e178324ca2" data-execution_count="111">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>mu_alt <span class="ot">&lt;-</span> <span class="fl">0.4</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="dv">100000</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>beta <span class="ot">&lt;-</span> <span class="fl">0.20</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>z_beta <span class="ot">&lt;-</span> <span class="fu">qnorm</span>(<span class="dv">1</span> <span class="sc">-</span> beta)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>density_alt <span class="ot">&lt;-</span> <span class="fu">density</span>(<span class="fu">rnorm</span>(n, mu_alt, <span class="dv">1</span>))</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>df_alt <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">x =</span> density_alt<span class="sc">$</span>x, <span class="at">y =</span> density_alt<span class="sc">$</span>y)</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>() <span class="sc">+</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_ribbon</span>(<span class="at">data =</span> df_alt[df_alt<span class="sc">$</span>x <span class="sc">&gt;</span> <span class="sc">-</span>z_beta, ],</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>              <span class="fu">aes</span>(<span class="at">x =</span> x, <span class="at">ymax =</span> y, <span class="at">fill =</span> <span class="st">"change (true positive)"</span>),</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>              <span class="at">ymin =</span> <span class="dv">0</span>, <span class="at">alpha =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_ribbon</span>(<span class="at">data =</span> df_alt[df_alt<span class="sc">$</span>x <span class="sc">&lt;=</span> <span class="sc">-</span>z_beta, ],</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>              <span class="fu">aes</span>(<span class="at">x =</span> x, <span class="at">ymax =</span> y, <span class="at">fill =</span> <span class="st">"type II error (false negative)"</span>),</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>              <span class="at">ymin =</span> <span class="dv">0</span>, <span class="at">alpha =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_manual</span>(<span class="at">values =</span> <span class="fu">c</span>( <span class="st">"green"</span>, <span class="st">"blue"</span>)) <span class="sc">+</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_segment</span>(<span class="fu">aes</span>(<span class="at">x =</span> mu_alt, <span class="at">y =</span> <span class="dv">0</span>, <span class="at">xend =</span> <span class="sc">-</span>z_beta, <span class="at">yend =</span> <span class="dv">0</span>)) <span class="sc">+</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_text</span>(<span class="fu">aes</span>(<span class="sc">-</span><span class="fl">0.25</span>, <span class="dv">0</span>, <span class="at">label =</span> <span class="st">"d_beta"</span>, <span class="at">vjust =</span> <span class="sc">-</span><span class="dv">1</span>)) <span class="sc">+</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> mu_alt, <span class="at">linetype=</span><span class="st">"dashed"</span>, <span class="at">linewidth =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="sc">-</span>z_beta, <span class="at">linetype=</span><span class="st">"dashed"</span>, <span class="at">linewidth =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_text</span>(<span class="fu">aes</span>(<span class="at">x =</span> <span class="sc">-</span><span class="fl">1.1</span>, <span class="at">label =</span> <span class="st">"</span><span class="sc">\n</span><span class="st">x_d"</span>, <span class="at">y =</span> <span class="dv">0</span>, <span class="at">vjust =</span> <span class="fl">0.75</span>), <span class="at">angle=</span><span class="dv">0</span>) <span class="sc">+</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">limits =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">3</span> <span class="sc">+</span> mu_alt, <span class="dv">3</span> <span class="sc">+</span> mu_alt)) <span class="sc">+</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">axis.text.x=</span><span class="fu">element_blank</span>(), <span class="at">axis.ticks.x=</span><span class="fu">element_blank</span>(),</span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>        <span class="at">axis.text.y=</span><span class="fu">element_blank</span>(), <span class="at">axis.ticks.y=</span><span class="fu">element_blank</span>(), <span class="at">axis.title.y=</span><span class="fu">element_blank</span>(),</span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>        <span class="at">legend.title=</span><span class="fu">element_blank</span>()) <span class="sc">+</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlab</span>(mu_alt)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<p><img src="sample_size_files/figure-html/cell-3-output-1.png" class="img-fluid"></p>
+</div>
+</div>
+<p>the distance from the mean under the alternative hypothesis to the critical value is defined as <span class="math inline">\(d_\beta\)</span>. you can see that these two distances add to the difference in means between null and alternative hypothesis. by definition, the minimum detectable change (difference between the mean under the null and the mean under the alternative hypothesis) is equal to <span class="math inline">\(d\)</span>, so we can also define the following</p>
+<p><span class="math display">\[d = d_\alpha + d_\beta\]</span></p>
+<p>in other words, the critical value allows us to relate minimum detectable effect with type I and type II errors…</p>
+<p>in order to quantify <span class="math inline">\(d_\alpha\)</span> and <span class="math inline">\(d_\beta\)</span>, we need the expected value and variance of <span class="math inline">\(Y_d\)</span> under the null and alternative hypothesis. the expected value is pretty straighforward:</p>
+<p><span class="math display">\[ E[Y_d] = E[Y_e] - E[Y_c] = p_e - p_c \]</span></p>
+<p>whereas the variance is (assuming equal number of samples):</p>
+<p><span class="math display">\[ Var(Y_d) = Var(Y_e) + Var(Y_c) = \frac{p_e(1 - p_e)}{n} + \frac{p_c(1 - p_c)}{n} \]</span></p>
+<p>so under the null hypothesis where <span class="math inline">\(p_e = p_c\)</span> we have:</p>
+<p><span class="math display">\[ H_0: E[Y_d] = 0, \ Var(Y_d) = \frac{2p_c(1 - p_c)}{n} \]</span></p>
+<p>and under the alternative hypothesis:</p>
+<p><span class="math display">\[ H_a: E[Y_d] = d, \ Var(Y_d) = \frac{p_c(1 - p_c) + p_e(1 - p_e)}{n} \]</span></p>
+<p>using the normal approximation as previously noted, the distances are</p>
+<p><span class="math display">\[ d_\alpha = Z_{1-\alpha} \sqrt{\frac{2p_c(1-p_c)}{n}} \]</span></p>
+<p><span class="math display">\[ d_\beta = Z_{1-\beta}\sqrt{\frac{p_c(1 - p_c) + p_e(1 - p_e)}{n}} \]</span></p>
+<p>with some rearranging</p>
+<p><span class="math display">\[ d_\alpha = \frac{1}{\sqrt{n}} Z_{1-\alpha} \sqrt{2p_c(1-p_c)} \]</span></p>
+<p><span class="math display">\[ d_\beta = \frac{1}{\sqrt{n}} Z_{1-\beta} \sqrt{p_c(1-p_c) + p_e(1-p_e)} \]</span></p>
+<p>and so</p>
+<p><span class="math display">\[ d = \frac{1}{\sqrt{n}} \biggl( Z_{1-\alpha} \sqrt{2p_c(1-p_c)} + Z_{1-\beta} \sqrt{p_c(1-p_c) + p_e(1-p_e)} \biggr) \]</span></p>
+<p>solving for <span class="math inline">\(n\)</span>, the sample size of the test is</p>
+<p><span class="math display">\[ n = \biggl( \frac{Z_{1-\alpha} \sqrt{2p_c(1-p_c)} + Z_{1-\beta} \sqrt{p_c(1-p_c) + p_e(1-p_e)}}{d} \biggr) ^2 \]</span></p>
+<p>and the critical value to accept/reject the null</p>
+<p><span class="math display">\[ x_d = p_c + d_\alpha = p_c + Z_{1-\alpha} \sqrt{\frac{2p_c(1-p_c)}{n}} \]</span></p>
+<p>… this sample size accounts for the scenario where the change in rate is positive and the test is one-sided. For a two-sided test, the <span class="math inline">\(\alpha\)</span> value for the Z-score would have to divided by two in order to account for false positives in both directions. additionally, the alternative hypothesis variance could take on two different values which results in two different sample size calculations. for example, the alternative conversion rate <span class="math inline">\(p_e\)</span> could be either <span class="math inline">\(p_c + d\)</span> or <span class="math inline">\(p_c - d\)</span>. which do we choose and does it make a difference in terms of sample size? let’s look at a plot of variance of as a function of <span class="math inline">\(p_e\)</span> (recall this is <span class="math inline">\(E[Y_e]\)</span>).</p>
+<div class="cell" data-outputid="954e424e-775c-4ed9-bd0f-e37f0eefd3b6" data-execution_count="132">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># plot of variance for alternative hypothesis as a function E(Y_e)</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>mu_e <span class="ot">=</span> <span class="fu">seq</span>(<span class="fl">0.01</span>, <span class="fl">0.99</span>, <span class="at">by=</span><span class="fl">0.01</span>)  <span class="co"># i.e. p_e</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>var_e_fn <span class="ot">&lt;-</span> <span class="cf">function</span>(p_e) {</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(p_e <span class="sc">*</span> (<span class="dv">1</span> <span class="sc">-</span> p_e) <span class="sc">/</span> n)</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>var_e <span class="ot">=</span> <span class="fu">sapply</span>(mu_e, var_e_fn)</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(<span class="at">data =</span> <span class="fu">data.frame</span>(<span class="at">x =</span> mu_e, <span class="at">y =</span> var_e)) <span class="sc">+</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="fu">aes</span>(<span class="at">x =</span> x, <span class="at">y =</span> y), <span class="at">alpha =</span> <span class="fl">0.5</span>) <span class="sc">+</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlab</span>(<span class="st">"E(Y_e)"</span>) <span class="sc">+</span> <span class="fu">ylab</span>(<span class="st">"Var(Y_e)"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<p><img src="sample_size_files/figure-html/cell-4-output-1.png" class="img-fluid"></p>
+</div>
+</div>
+<p>so if we have a two-sided test, in order to be conservative, we should choose the value of <span class="math inline">\(p_e\)</span> that is closest to 0.5 and maximizes the variance resulting in a larger sample size.</p>
+<p><strong>link to shiny app sample size calculator - show decision boundary value etc</strong></p>
 
 
 
