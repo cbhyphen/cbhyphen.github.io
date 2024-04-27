@@ -174,25 +174,31 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 
 
-<p>I had a conversation at work with a colleague about evaluation metrics and if small model improvements were actually statistically significant. After some research we concluded that sampling wasn’t an effective strategy, given the small amount of data, but it reminded me of A/B testing. A few years back I had derived a sample size calculator but didn’t fully document it so that’s what I intend to do here. Before I dive into the sample size derivation, I’ll briefly go over hypothesis testing in the A/B framework.</p>
-<p>Typically, an A/B test is performed to evaluate the effectiveness of a treatment. The treatment could be a change to website, a change to a process, etc, and the metric used to compare the control and treatment groups might be sign-up rate, denial rate, etc. For this hypothetical example I’ll be using click-through rate to evaluate a change to a website.</p>
-<p>Before performing an A/B test, there are a few parameters which are either already known or defined. You should already have the current click-through rate. And prior to running the test, the type I and II error rates need to be defined as well as minimum detectable change. Type I error is the false positive rate (i.e.&nbsp;accept there was a change due to the treatment when there wasn’t) and type II error is the false negative rate (i.e.&nbsp;reject there was a change due to the treatment when there was). So we will assume that these parameters are known. What isn’t known is the sample size of the test and the critical value where the null hypothesis is accepted or rejected…</p>
-<p><strong>why sample size is important</strong></p>
-<p>… ok now onto some more formal definitions. The number of clicks would be a binomial random variable which we can define as</p>
+<p>The other day I had a conversation at work about model training and evaluation metrics. A colleague of mine suggested that the small improvements we were seeing might not actually be statistically significant. I speculated that we could use hypothesis testing (and sampling) to determine a threshold at which an improvement was or wasn’t significant. After some research, <a href="https://stats.stackexchange.com/a/626673">for various reasons</a>, we concluded that this was not a good approach (see link) but the topic reminded me of an A/B testing exercise I did a few years back. I hadn’t fully documented that work, so in this post I intend to do that. Here I’ll go through a derivation for sample size as it relates to A/B testing and ultimately create a sample size calculator as a shiny app (in R).</p>
+<p>Before I dive into a sample size derivation, I’ll briefly go over what A/B testing is and describe it’s components.</p>
+<p>Put simply, an A/B Test is a form of <a href="https://en.wikipedia.org/wiki/Statistical_hypothesis_test">statistical hypothesis testing</a>. We start with a hypothesis, data is collected, then a resulting test statistic determines the validity of the hypothesis. A hypothesis could something like “a change to my landing page will increase the number of sign-ups” and the test statistic would be sign-up rate. The test would involve making a change to the website while collecting number of sign-ups, and the new sign-up rate would indicate if your hypothesis should be rejected or accepted. Note that in this post I’ll be referring to the test statistic as a conversion rate for simplicity. And there many other scenarios (not just website design and sign-up rate) that fit within the A/B testing framework, this is just one example.</p>
+<p>Before performing an A/B test, there are a few parameters which are either already known or defined:</p>
+<ul>
+<li>current conversion rate</li>
+<li>type I error</li>
+<li>type II error</li>
+<li>minimum detectable change</li>
+</ul>
+<p>Current conversion rate is the value of the test statistic without any changes (i.e.&nbsp;control group) and should be known apriori. Type I and II errors are tolerance parameters you will define for the test. Type I error is the false positive rate (i.e.&nbsp;accept there was a change due to the treatment when there wasn’t) and type II error is the false negative rate (i.e.&nbsp;reject there was a change due to the treatment when there was). As you might expect, the higher the tolerance for error the fewer samples you will need. Lastly, the somewhat self explanatory minimum detectable change is the smallest change you’d like to be able to detect from the test. Conversely, the smaller the change, the more samples you’ll need. Thus, the <strong>unknown parameters are the sample size as well as the critical value</strong> at which to accept or reject the hypothesis.</p>
+<p>Ok, so defining things more formally, the number of conversions would be a binomial random variable</p>
 <p><span class="math display">\[ X \sim B(n, p) \]</span></p>
-<p>where <span class="math inline">\(n\)</span> is number of trials and <span class="math inline">\(p\)</span> is the probability of a success. By definition, the expected value and variance for this random variable are</p>
+<p>where <span class="math inline">\(n\)</span> is number of trials (or visits in the hypothetical example above) and <span class="math inline">\(p\)</span> is the probability of a success (or sign-up). By definition, the expected value and variance for the binomial random variable are</p>
 <p><span class="math display">\[ E[X] = np, \ Var(X) = np(1 - p) \]</span></p>
-<p>but we are more interested in the rate of clicks so we can define a new variable</p>
+<p>Since we are interested in conersion rate, we can define a new variable</p>
 <p><span class="math display">\[ Y = \frac{X}{n} \]</span></p>
-<p>and by properties of <a href="https://en.wikipedia.org/wiki/Expected_value#Properties">expectation</a> and <a href="https://en.wikipedia.org/wiki/Variance#Basic_properties">variance</a></p>
+<p>and by properties of <a href="https://en.wikipedia.org/wiki/Expected_value#Properties">expectation</a> and <a href="https://en.wikipedia.org/wiki/Variance#Basic_properties">variance</a> the new parameters are</p>
 <p><span class="math display">\[ E[Y] = p, \ Var(Y) = \frac{p(1 - p)}{n} \]</span></p>
-<p>so we have a formal mathematical definition of the distribution for click-through rate. Now onto hypothesis testing.</p>
-<p>Let’s further define the current conversion rate as <span class="math inline">\(Y_c\)</span> and the treatment group rate as <span class="math inline">\(Y_e\)</span>. For convenience we can define a new variable that is the difference between the two <span class="math inline">\(Y_d = Y_e - Y_c\)</span>. In our test, let’s say the null hypothesis is that the expected value of this difference is zero:</p>
+<p>Now, let’s define the current conversion rate as <span class="math inline">\(Y_c\)</span> and the treatment conversion rate as <span class="math inline">\(Y_e\)</span>. To make the hypothesis convenient, our test statistic will be the difference between the two <span class="math inline">\(Y_d = Y_e - Y_c\)</span>, and the null hypothesis is that the expected value of this difference is zero</p>
 <p><span class="math display">\[ H_0: E[Y_d] = 0 \]</span></p>
-<p>and the alternative hypothesis that the difference is equal to a value <span class="math inline">\(d\)</span> (i.e.&nbsp;the treatment had a positive effect):</p>
-<p><span class="math display">\[ H_a: E[Y_d] = d \]</span></p>
-<p>in practice, the alternative hypothesis would be <span class="math inline">\(\ge\)</span> or <span class="math inline">\(\le\)</span> instead of <span class="math inline">\(=\)</span> but I’m ignoring that for now. At this point, it’s also important to note that there is a difference between test types; one sided or two sided. One sided only evaluates for a change in one direction whereas two sided tests in both directions (i.e.&nbsp;could be less than <span class="math inline">\(d\)</span> or greater than <span class="math inline">\(d\)</span>). This is important because it affects the critical value and thus sample size (<strong>elaborate here or later…</strong>).</p>
-<p>let’s show graphically what the test statistic distribution looks like under the null and alternative hypothesis along with type I and type II errors as well as the critical value <span class="math inline">\(x_d\)</span>. note that when the number of binomial samples is large enough, we can <a href="https://en.wikipedia.org/wiki/Binomial_distribution#Normal_approximation">approximate it with a normal distribution</a>. this means that we can use Z-scores and assume the distribution is Gaussian.</p>
+<p>and the alternative hypothesis that the difference is equal to or greater than some value <span class="math inline">\(d\)</span> (i.e.&nbsp;the treatment had a positive effect):</p>
+<p><span class="math display">\[ H_a: E[Y_d] \ge d \]</span></p>
+<p>Note that this implies a one-sided test, but there can also be a two-sided test. A one-sided test evaluates for a change in one direction whereas two-sided test evalutes change in both directions (i.e.&nbsp;the change could also be negative). This is important because it affects the critical value and thus sample size, which I’ll elaborate on later.</p>
+<p>Visual representations are always helpful, so below is the distribution of the test statistic <span class="math inline">\(Y_d\)</span> under the null hypothesis when type I error <span class="math inline">\(\alpha = 0.05\)</span>. An important note here is that I’m using a Gaussian approximation to the Binomial <a href="https://en.wikipedia.org/wiki/Binomial_distribution#Normal_approximation">which is valid when the number of samples is large enough</a>.</p>
 <div class="cell" data-outputid="11da83b7-a937-40bb-a412-2c1db68ea4f5" data-execution_count="116">
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
@@ -227,7 +233,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p><img src="sample_size_files/figure-html/cell-2-output-1.png" class="img-fluid"></p>
 </div>
 </div>
-<p>note that above I’ve also defined the distance from the mean under the null to the critical value as <span class="math inline">\(d_\alpha\)</span>. now let’s look at the alternative hypothesis when <span class="math inline">\(d = 0.4\)</span></p>
+<p>The gray shaded region is the probability density of a true negative and the red region corresponds to a false positive. Here the variable <span class="math inline">\(d_\alpha\)</span> is the distance from the expected value under the null hypothesis to the critical value <span class="math inline">\(x_d\)</span>. This distance depends upon the allowable type I error <span class="math inline">\(\alpha\)</span>.</p>
+<p>Now let’s take a look at the alternative hypothesis for <span class="math inline">\(d = 0.4\)</span> and a type II error <span class="math inline">\(\beta = 0.20\)</span>.</p>
 <div class="cell" data-outputid="7d830bb9-da16-449a-bff9-91e178324ca2" data-execution_count="111">
 <div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>mu_alt <span class="ot">&lt;-</span> <span class="fl">0.4</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="dv">100000</span></span>
@@ -260,30 +267,32 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p><img src="sample_size_files/figure-html/cell-3-output-1.png" class="img-fluid"></p>
 </div>
 </div>
-<p>the distance from the mean under the alternative hypothesis to the critical value is defined as <span class="math inline">\(d_\beta\)</span>. you can see that these two distances add to the difference in means between null and alternative hypothesis. by definition, the minimum detectable change (difference between the mean under the null and the mean under the alternative hypothesis) is equal to <span class="math inline">\(d\)</span>, so we can also define the following</p>
+<p>The green shaded region is the probability density of a true positive and the blue region corresponds to a false negative. Akin to the previous plot, the variable <span class="math inline">\(d_\beta\)</span> defines the distance from the expected value under the alternative hypothesis to the critical value <span class="math inline">\(x_d\)</span>. This distance depends upon the allowable type II error <span class="math inline">\(\beta\)</span>.</p>
+<p>If you look closely, you can see that the critival value allows us to relate both distances to the minimum detectable change <span class="math inline">\(d\)</span>.</p>
 <p><span class="math display">\[d = d_\alpha + d_\beta\]</span></p>
-<p>in other words, the critical value allows us to relate minimum detectable effect with type I and type II errors…</p>
-<p>in order to quantify <span class="math inline">\(d_\alpha\)</span> and <span class="math inline">\(d_\beta\)</span>, we need the expected value and variance of <span class="math inline">\(Y_d\)</span> under the null and alternative hypothesis. the expected value is pretty straighforward:</p>
+<p>Again, <span class="math inline">\(d\)</span> is the difference between the expected value under the null hypothesis and the expected value under the alternative hypothesis. And it’s not immediately clear how defining these distances will help us determine sample size and critival value but we’ll see below.</p>
+<p>In order to quantify <span class="math inline">\(d_\alpha\)</span> and <span class="math inline">\(d_\beta\)</span>, we need the expected value and variance of the test statistic <span class="math inline">\(Y_d\)</span> under the null and alternative hypothesis. The expected value is pretty straighforward</p>
 <p><span class="math display">\[ E[Y_d] = E[Y_e] - E[Y_c] = p_e - p_c \]</span></p>
-<p>whereas the variance is (assuming equal number of samples):</p>
+<p>whereas the variance is (assuming equal number of samples)</p>
 <p><span class="math display">\[ Var(Y_d) = Var(Y_e) + Var(Y_c) = \frac{p_e(1 - p_e)}{n} + \frac{p_c(1 - p_c)}{n} \]</span></p>
-<p>so under the null hypothesis where <span class="math inline">\(p_e = p_c\)</span> we have:</p>
+<p>So, to elaborate on our hypothesis, under the null where <span class="math inline">\(p_e = p_c\)</span> we have</p>
 <p><span class="math display">\[ H_0: E[Y_d] = 0, \ Var(Y_d) = \frac{2p_c(1 - p_c)}{n} \]</span></p>
-<p>and under the alternative hypothesis:</p>
-<p><span class="math display">\[ H_a: E[Y_d] = d, \ Var(Y_d) = \frac{p_c(1 - p_c) + p_e(1 - p_e)}{n} \]</span></p>
-<p>using the normal approximation as previously noted, the distances are</p>
+<p>and under the alternative there is</p>
+<p><span class="math display">\[ H_a: E[Y_d] \le d, \ Var(Y_d) = \frac{p_c(1 - p_c) + p_e(1 - p_e)}{n} \]</span></p>
+<p>Using the Gaussian approximation as noted above, we can define the following distances</p>
 <p><span class="math display">\[ d_\alpha = Z_{1-\alpha} \sqrt{\frac{2p_c(1-p_c)}{n}} \]</span></p>
 <p><span class="math display">\[ d_\beta = Z_{1-\beta}\sqrt{\frac{p_c(1 - p_c) + p_e(1 - p_e)}{n}} \]</span></p>
-<p>with some rearranging</p>
+<p>and some rearranging to isolate <span class="math inline">\(n\)</span> our variable of interest</p>
 <p><span class="math display">\[ d_\alpha = \frac{1}{\sqrt{n}} Z_{1-\alpha} \sqrt{2p_c(1-p_c)} \]</span></p>
 <p><span class="math display">\[ d_\beta = \frac{1}{\sqrt{n}} Z_{1-\beta} \sqrt{p_c(1-p_c) + p_e(1-p_e)} \]</span></p>
-<p>and so</p>
+<p>Now we can define the minimum detectable effect as</p>
 <p><span class="math display">\[ d = \frac{1}{\sqrt{n}} \biggl( Z_{1-\alpha} \sqrt{2p_c(1-p_c)} + Z_{1-\beta} \sqrt{p_c(1-p_c) + p_e(1-p_e)} \biggr) \]</span></p>
-<p>solving for <span class="math inline">\(n\)</span>, the sample size of the test is</p>
+<p>and solving for <span class="math inline">\(n\)</span>, the sample size of the test is</p>
 <p><span class="math display">\[ n = \biggl( \frac{Z_{1-\alpha} \sqrt{2p_c(1-p_c)} + Z_{1-\beta} \sqrt{p_c(1-p_c) + p_e(1-p_e)}}{d} \biggr) ^2 \]</span></p>
-<p>and the critical value to accept/reject the null</p>
+<p>where the critical value to acceptor reject the null hypothesis is</p>
 <p><span class="math display">\[ x_d = p_c + d_\alpha = p_c + Z_{1-\alpha} \sqrt{\frac{2p_c(1-p_c)}{n}} \]</span></p>
-<p>… this sample size accounts for the scenario where the change in rate is positive and the test is one-sided. For a two-sided test, the <span class="math inline">\(\alpha\)</span> value for the Z-score would have to divided by two in order to account for false positives in both directions. additionally, the alternative hypothesis variance could take on two different values which results in two different sample size calculations. for example, the alternative conversion rate <span class="math inline">\(p_e\)</span> could be either <span class="math inline">\(p_c + d\)</span> or <span class="math inline">\(p_c - d\)</span>. which do we choose and does it make a difference in terms of sample size? let’s look at a plot of variance of as a function of <span class="math inline">\(p_e\)</span> (recall this is <span class="math inline">\(E[Y_e]\)</span>).</p>
+<p>It’s important to re-iterate that this sample size calculation is for a one-sided test and a scenario where the change in rate is expected to be positive. If we expected a negative change in rate, the minimum detectable effect <span class="math inline">\(d\)</span> would be negative and the equality in the alternative hypothesis flipped.</p>
+<p>For a two-sided test, Z-score corresponding to the <span class="math inline">\(\alpha\)</span> value would need to divided in half in order to account for false positives in both directions. Another important caveat under the two-sided alternative hypothesis is that variance could take on two different values. For instance, the alternative conversion rate <span class="math inline">\(p_e\)</span> could be equal to either <span class="math inline">\(p_c + d\)</span> or <span class="math inline">\(p_c - d\)</span> each of which implies a different variance and thus sample size. To make this clear, here is a plot of variance of as a function <span class="math inline">\(p_e\)</span> (recall this is <span class="math inline">\(E[Y_e]\)</span>).</p>
 <div class="cell" data-outputid="954e424e-775c-4ed9-bd0f-e37f0eefd3b6" data-execution_count="132">
 <div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># plot of variance for alternative hypothesis as a function E(Y_e)</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
@@ -302,8 +311,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p><img src="sample_size_files/figure-html/cell-4-output-1.png" class="img-fluid"></p>
 </div>
 </div>
-<p>so if we have a two-sided test, in order to be conservative, we should choose the value of <span class="math inline">\(p_e\)</span> that is closest to 0.5 and maximizes the variance resulting in a larger sample size.</p>
-<p><strong>link to shiny app sample size calculator - show decision boundary value etc</strong></p>
+<p>So, if we are performing a two-sided test, in order to be conservative, we should choose the value of <span class="math inline">\(p_e\)</span> that maximizes the variance and sample size. As you can see above, this amounts to choosing the value of <span class="math inline">\(p_e\)</span> which is closest to <span class="math inline">\(\frac{1}{2}\)</span>.</p>
+<p>The following is a link to a sample size calculator I created in R using shiny. Note that this doesn’t yet display the critical value but that is scheduled for a second pass.</p>
+<p>https://cbhyphen.shinyapps.io/ab-test-sample-size-calculator/</p>
 
 
 
