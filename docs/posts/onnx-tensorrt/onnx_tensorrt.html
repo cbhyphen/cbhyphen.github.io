@@ -174,7 +174,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <p>follow up post to pytorch quantization … can we make it faster with GPU and TensorRT</p>
 <p>get FasterRCNN as before with a resnet101 backbone…</p>
-<div class="cell" data-execution_count="80">
+<div class="cell">
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="op">%%</span>capture</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torchvision.models.resnet <span class="im">import</span> ResNet, Bottleneck, ResNet101_Weights</span>
@@ -214,20 +214,20 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>rcnn.<span class="bu">eval</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>time the RCNN on both CPU and GPU. I don’t recall what the specs were the last time I used colab to profile the inference time so I’ll document that here as well. I’m using a T4 GPU and the following CPU</p>
-<div class="cell" data-outputid="97a14e4d-cd2f-448c-abb1-d620fb5814fa" data-execution_count="68">
+<div class="cell" data-outputid="97a14e4d-cd2f-448c-abb1-d620fb5814fa">
 <div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># !cat /proc/cpuinfo  | grep 'name' | uniq</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="op">!</span>lscpu <span class="op">|</span> grep <span class="st">'name'</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>model name  : Intel(R) Xeon(R) CPU @ 2.20GHz</code></pre>
 </div>
 </div>
-<div class="cell" data-outputid="4cf2360b-f073-4d64-ac36-e5dd8c478b67" data-execution_count="73">
+<div class="cell" data-outputid="4cf2360b-f073-4d64-ac36-e5dd8c478b67">
 <div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="op">!</span>nvidia<span class="op">-</span>smi <span class="op">-</span>L</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>GPU 0: Tesla T4 (UUID: GPU-8e4bcaf6-e88c-6df2-f337-32e33d96a494)</code></pre>
 </div>
 </div>
-<div class="cell" data-outputid="dc6685f2-08a1-408b-93f0-2bba090baa95" data-execution_count="81">
+<div class="cell" data-outputid="dc6685f2-08a1-408b-93f0-2bba090baa95">
 <div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># random image</span></span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>image <span class="op">=</span> torch.rand(<span class="dv">3</span>, <span class="dv">200</span>, <span class="dv">200</span>)</span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="co"># put on CPU</span></span>
@@ -240,7 +240,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <pre><code>1.86 s ± 190 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)</code></pre>
 </div>
 </div>
-<div class="cell" data-outputid="1456e86b-ddbe-4b50-c747-f6d46bb1e1d3" data-execution_count="82">
+<div class="cell" data-outputid="1456e86b-ddbe-4b50-c747-f6d46bb1e1d3">
 <div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> copy <span class="im">import</span> deepcopy</span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="co"># on GPU</span></span>
@@ -255,7 +255,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </div>
 </div>
 <p>we can also test with half precision…</p>
-<div class="cell" data-outputid="22d6676e-9f9d-4160-f539-415c2bb8edde" data-execution_count="83">
+<div class="cell" data-outputid="22d6676e-9f9d-4160-f539-415c2bb8edde">
 <div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>rcnn_gpu_half <span class="op">=</span> rcnn_gpu.half().to(torch.device(<span class="st">'cuda'</span>))</span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>input_half <span class="op">=</span> image_gpu.half()</span>
 <span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -266,7 +266,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </div>
 </div>
 <p>also re-clock the quantized model using FX Graph Mode since it’s performance is also CPU specific</p>
-<div class="cell" data-execution_count="96">
+<div class="cell">
 <div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="op">%%</span>capture</span>
 <span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torch.ao.quantization <span class="im">import</span> quantize_fx</span>
 <span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torch.ao.quantization.qconfig_mapping <span class="im">import</span> get_default_qconfig_mapping</span>
@@ -287,7 +287,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>script_module.save(<span class="st">"./quant_rcnn.pt"</span>)</span>
 <span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>quant_rcnn_jit <span class="op">=</span> torch.jit.load(<span class="st">"./quant_rcnn.pt"</span>, map_location<span class="op">=</span>torch.device(<span class="st">'cpu'</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-outputid="97608558-e3e9-48af-ff09-366282fec91d" data-execution_count="97">
+<div class="cell" data-outputid="97608558-e3e9-48af-ff09-366282fec91d">
 <div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> warnings</span>
 <span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="co"># warmup</span></span>
@@ -303,7 +303,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </div>
 </div>
 <p>convert float model to onnx…</p>
-<div class="cell" data-outputid="69d2a860-f0a0-4a8c-8b67-0f13a4bf6a8c" data-execution_count="123">
+<div class="cell" data-outputid="69d2a860-f0a0-4a8c-8b67-0f13a4bf6a8c">
 <div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="op">!</span>pip install onnx</span>
 <span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="op">!</span>pip install onnxruntime</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
@@ -321,7 +321,7 @@ Requirement already satisfied: humanfriendly&gt;=9.1 in /usr/local/lib/python3.1
 Requirement already satisfied: mpmath&gt;=0.19 in /usr/local/lib/python3.10/dist-packages (from sympy-&gt;onnxruntime) (1.3.0)</code></pre>
 </div>
 </div>
-<div class="cell" data-outputid="101146a3-e9d8-40ac-fb99-96c2d7e4a2f9" data-execution_count="122">
+<div class="cell" data-outputid="101146a3-e9d8-40ac-fb99-96c2d7e4a2f9">
 <div class="sourceCode cell-code" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> onnx</span>
 <span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="co"># onnx runs on cpu</span></span>
@@ -351,7 +351,7 @@ Requirement already satisfied: mpmath&gt;=0.19 in /usr/local/lib/python3.10/dist
 </div>
 </div>
 <p>run inference on onnx model, make sure outputs are as expected, then clock-it…</p>
-<div class="cell" data-execution_count="111">
+<div class="cell">
 <div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> onnxruntime</span>
 <span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
 <span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -366,7 +366,7 @@ Requirement already satisfied: mpmath&gt;=0.19 in /usr/local/lib/python3.10/dist
 <span id="cb19-12"><a href="#cb19-12" aria-hidden="true" tabindex="-1"></a>ort_inputs <span class="op">=</span> {ort_session.get_inputs()[<span class="dv">0</span>].name: to_numpy(image)}</span>
 <span id="cb19-13"><a href="#cb19-13" aria-hidden="true" tabindex="-1"></a>ort_outs <span class="op">=</span> ort_session.run(<span class="va">None</span>, ort_inputs)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-outputid="f0a344b8-1532-437b-c0eb-12e69730fdd5" data-execution_count="120">
+<div class="cell" data-outputid="f0a344b8-1532-437b-c0eb-12e69730fdd5">
 <div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="co"># onxx outputs are list of three arrays corresponding to 'boxes', 'labels', and 'scores'</span></span>
 <span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"onnx out shapes: "</span>, [arr.shape <span class="cf">for</span> arr <span class="kw">in</span> ort_outs])</span>
 <span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a><span class="co"># quant model out is tuple of (losses, outputs)</span></span>
@@ -377,16 +377,22 @@ Requirement already satisfied: mpmath&gt;=0.19 in /usr/local/lib/python3.10/dist
 torch out shapes:  [torch.Size([100, 4]), torch.Size([100]), torch.Size([100])]</code></pre>
 </div>
 </div>
-<div class="cell" data-outputid="b4a01af1-742b-4304-9eee-dee67b159249" data-execution_count="118">
+<div class="cell" data-outputid="b4a01af1-742b-4304-9eee-dee67b159249">
 <div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>onnx_time <span class="op">=</span> <span class="op">%</span>timeit <span class="op">-</span>o ort_session.run(<span class="va">None</span>, ort_inputs)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>1.62 s ± 148 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)</code></pre>
 </div>
 </div>
 <p>convert from onnx to tensorRT…</p>
-<div class="cell" data-execution_count="129">
+<div class="cell">
 <div class="sourceCode cell-code" id="cb24"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="co"># </span><span class="al">TODO</span><span class="co"> ...</span></span>
 <span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a><span class="co"># import tensorrt</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="co"># plot latency for all methods (bar chart)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 </div>
 
 
