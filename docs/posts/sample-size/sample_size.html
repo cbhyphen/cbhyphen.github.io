@@ -199,7 +199,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p><span class="math display">\[ H_a: E[Y_d] \ge d \]</span></p>
 <p>Note that this implies a one-sided test, but there can also be a two-sided test. A one-sided test evaluates for a change in one direction whereas two-sided test evalutes change in both directions (i.e.&nbsp;the change could also be negative). This is important because it affects the critical value and thus sample size, which I’ll elaborate on later.</p>
 <p>Visual representations are always helpful, so below is the distribution of the test statistic <span class="math inline">\(Y_d\)</span> under the null hypothesis when type I error <span class="math inline">\(\alpha = 0.05\)</span>. An important note here is that I’m using a Gaussian approximation to the Binomial <a href="https://en.wikipedia.org/wiki/Binomial_distribution#Normal_approximation">which is valid when the number of samples is large enough</a>.</p>
-<div class="cell" data-outputid="11da83b7-a937-40bb-a412-2c1db68ea4f5" data-execution_count="116">
+<div class="cell" data-outputid="11da83b7-a937-40bb-a412-2c1db68ea4f5">
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>mu_null <span class="ot">&lt;-</span> <span class="dv">0</span></span>
@@ -235,7 +235,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </div>
 <p>The gray shaded region is the probability density of a true negative and the red region corresponds to a false positive. Here the variable <span class="math inline">\(d_\alpha\)</span> is the distance from the expected value under the null hypothesis to the critical value <span class="math inline">\(x_d\)</span>. This distance depends upon the allowable type I error <span class="math inline">\(\alpha\)</span>.</p>
 <p>Now let’s take a look at the alternative hypothesis for <span class="math inline">\(d = 0.4\)</span> and a type II error <span class="math inline">\(\beta = 0.20\)</span>.</p>
-<div class="cell" data-outputid="7d830bb9-da16-449a-bff9-91e178324ca2" data-execution_count="111">
+<div class="cell" data-outputid="7d830bb9-da16-449a-bff9-91e178324ca2">
 <div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>mu_alt <span class="ot">&lt;-</span> <span class="fl">0.4</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="dv">100000</span></span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>beta <span class="ot">&lt;-</span> <span class="fl">0.20</span></span>
@@ -293,7 +293,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p><span class="math display">\[ x_d = p_c + d_\alpha = p_c + Z_{1-\alpha} \sqrt{\frac{2p_c(1-p_c)}{n}} \]</span></p>
 <p>It’s important to re-iterate that this sample size calculation is for a one-sided test and a scenario where the change in rate is expected to be positive. If we expected a negative change in rate, the minimum detectable effect <span class="math inline">\(d\)</span> would be negative and the equality in the alternative hypothesis flipped.</p>
 <p>For a two-sided test, Z-score corresponding to the <span class="math inline">\(\alpha\)</span> value would need to divided in half in order to account for false positives in both directions. Another important caveat under the two-sided alternative hypothesis is that variance could take on two different values. For instance, the alternative conversion rate <span class="math inline">\(p_e\)</span> could be equal to either <span class="math inline">\(p_c + d\)</span> or <span class="math inline">\(p_c - d\)</span> each of which implies a different variance and thus sample size. To make this clear, here is a plot of variance of as a function <span class="math inline">\(p_e\)</span> (recall this is <span class="math inline">\(E[Y_e]\)</span>).</p>
-<div class="cell" data-outputid="954e424e-775c-4ed9-bd0f-e37f0eefd3b6" data-execution_count="132">
+<div class="cell" data-outputid="954e424e-775c-4ed9-bd0f-e37f0eefd3b6">
 <div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># plot of variance for alternative hypothesis as a function E(Y_e)</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>mu_e <span class="ot">=</span> <span class="fu">seq</span>(<span class="fl">0.01</span>, <span class="fl">0.99</span>, <span class="at">by=</span><span class="fl">0.01</span>)  <span class="co"># i.e. p_e</span></span>
@@ -312,7 +312,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </div>
 </div>
 <p>So, if we are performing a two-sided test, in order to be conservative, we should choose the value of <span class="math inline">\(p_e\)</span> that maximizes the variance and sample size. As you can see above, this amounts to choosing the value of <span class="math inline">\(p_e\)</span> which is closest to <span class="math inline">\(\frac{1}{2}\)</span>.</p>
-<p>The following is <a href="https://cbhyphen.shinyapps.io/ab-test-sample-size-calculator/">a link to a sample size calculator</a> I created in R using shiny. Note that this doesn’t yet display the critical value but that is scheduled for a second pass.</p>
+<p>The following is <a href="https://cbhyphen.shinyapps.io/sample-size/">a link to a sample size calculator</a> I created in R using shiny. In the app you can select the current conversion rate along with test parameters such as minimum detectable change, test direction, and significance/power level. The output will show sample size, the change in conversion rate at which to reject the null hypothesis, and a plot of the probability densities.</p>
 
 
 
