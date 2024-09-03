@@ -6,8 +6,10 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
+<meta name="author" content="chris">
+<meta name="dcterms.date" content="2024-08-31">
 
-<title>cbhyphen – cbhyphen.github.io</title>
+<title>Maximum Subarray Sum – cbhyphen.github.io</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -20,27 +22,59 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
 </style>
 
 
-<script src="site_libs/quarto-nav/quarto-nav.js"></script>
-<script src="site_libs/quarto-nav/headroom.min.js"></script>
-<script src="site_libs/clipboard/clipboard.min.js"></script>
-<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
-<script src="site_libs/quarto-search/fuse.min.js"></script>
-<script src="site_libs/quarto-search/quarto-search.js"></script>
-<meta name="quarto:offset" content="./">
-<script src="site_libs/quarto-listing/list.min.js"></script>
-<script src="site_libs/quarto-listing/quarto-listing.js"></script>
-<script src="site_libs/quarto-html/quarto.js"></script>
-<script src="site_libs/quarto-html/popper.min.js"></script>
-<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
-<script src="site_libs/quarto-html/anchor.min.js"></script>
-<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
-<script src="site_libs/bootstrap/bootstrap.min.js"></script>
-<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../">
+<script src="../../site_libs/quarto-html/quarto.js"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -68,35 +102,6 @@ ul.task-list li input[type="checkbox"] {
     "search-label": "Search"
   }
 }</script>
-<script>
-
-  window.document.addEventListener("DOMContentLoaded", function (_event) {
-    const listingTargetEl = window.document.querySelector('#listing-listing .list');
-    if (!listingTargetEl) {
-      // No listing discovered, do not attach.
-      return; 
-    }
-
-    const options = {
-      valueNames: ['listing-date','listing-title','listing-author','listing-image','listing-description','listing-categories',{ data: ['index'] },{ data: ['categories'] },{ data: ['listing-date-sort'] },{ data: ['listing-file-modified-sort'] }],
-      
-      searchColumns: ["listing-date","listing-title","listing-author","listing-image","listing-description","listing-categories"],
-    };
-
-    window['quarto-listings'] = window['quarto-listings'] || {};
-    window['quarto-listings']['listing-listing'] = new List('listing-listing', options);
-
-    if (window['quarto-listing-loaded']) {
-      window['quarto-listing-loaded']();
-    }
-  });
-
-  window.addEventListener('hashchange',() => {
-    if (window['quarto-listing-loaded']) {
-      window['quarto-listing-loaded']();
-    }
-  })
-  </script>
 
   <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
@@ -128,17 +133,17 @@ window.Quarto = {
 };
 </script>
 
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="../../styles.css">
 </head>
 
-<body class="nav-fixed">
+<body class="nav-fixed fullcontent">
 
 <div id="quarto-search-results"></div>
   <header id="quarto-header" class="headroom fixed-top quarto-banner">
     <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
       <div class="navbar-container container-fluid">
       <div class="navbar-brand-container mx-auto">
-    <a class="navbar-brand" href="./index.html">
+    <a class="navbar-brand" href="../../index.html">
     <span class="navbar-title">cbhyphen.github.io</span>
     </a>
   </div>
@@ -149,7 +154,7 @@ window.Quarto = {
           <div class="collapse navbar-collapse" id="navbarCollapse">
             <ul class="navbar-nav navbar-nav-scroll ms-auto">
   <li class="nav-item">
-    <a class="nav-link" href="./about.html"> 
+    <a class="nav-link" href="../../about.html"> 
 <span class="menu-text">about</span></a>
   </li>  
   <li class="nav-item compact">
@@ -167,268 +172,99 @@ window.Quarto = {
 <!-- content -->
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
-    <div class="quarto-title column-page-left">
-      <h1 class="title">cbhyphen</h1>
+    <div class="quarto-title column-body">
+      <h1 class="title">Maximum Subarray Sum</h1>
                       </div>
   </div>
     
   
-  <div class="quarto-title-meta column-page-left">
+  <div class="quarto-title-meta">
 
+      <div>
+      <div class="quarto-title-meta-heading">Author</div>
+      <div class="quarto-title-meta-contents">
+               <p>chris </p>
+            </div>
+    </div>
       
+      <div>
+      <div class="quarto-title-meta-heading">Published</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date">August 31, 2024</p>
+      </div>
+    </div>
     
       
     </div>
     
   
-  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-full page-navbar">
+  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
 <!-- sidebar -->
 <!-- margin-sidebar -->
-    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
-        
-    <h5 class="quarto-listing-category-title">Categories</h5><div class="quarto-listing-category category-default"><div class="category" data-category="">All <span class="quarto-category-count">(8)</span></div></div></div>
+    
 <!-- main -->
-<main class="content quarto-banner-title-block column-page-left" id="quarto-document-content">
+<main class="content quarto-banner-title-block" id="quarto-document-content">
 
 
 
 
 
+<p>It’s been a few months since I posted due to health issues, but I’m breaking the silence with something small today. Most of my posts have been deep dives so this will be a nice change up.</p>
+<p>Even if I’m not working on any side projects outside of work, I tend to fulfill my curiosity (ok maybe obsession) via some kind of MOOC or programming challenge. I picked up this habit while filling gaps in my computer science knowledge (undergraduate math and statistics background) and it hasn’t quite stopped.</p>
+<p>Apropos to that, I came across the <a href="https://leetcode.com/problems/best-time-to-buy-and-sell-stock/description/">“Best Time to Buy and Sell Stock” problem</a> the other day. The problem setup is pretty simple; given an array of daily stock prices, find the maximum profit possible by buying one day and selling another.</p>
+<p>The naive/brute force solution that you might imagine (two pointers) actually fails a time limit because of its <span class="math inline">\(O(n^2)\)</span> time complexity. When I first saw it, it smelled a lot like DP and the <a href="https://en.wikipedia.org/wiki/Maximum_subarray_problem">Maximum Subarray Sum problem</a> that I had seen in my graduate algorithms class. After solving it, I realized the DP approach wasn’t entirely obvious to most people who attempted the problem. The official solution even misses presenting it this way, so in this post I want to go through that problem/solution framing and explain how/why it works.</p>
+<p>In the ‘maximum subarray sum’ problem , we’re given an array of numbers and want to find the maximum sum of a contiguous subarray. We can’t use this as a drop-in solution to the buy and sell problem though, as it would give us a sum of prices (could call it the most expensive period) instead of profits. However, if you take daily price differences, then you can use the same approach.</p>
+<p>Let’s define the prices array as</p>
+<p><span class="math display">\[ P = [p_0, p_1, ... p_{n-1}, p_n] \]</span></p>
+<p>and a price difference array as</p>
+<p><span class="math display">\[ d_i = p_i - p_{i-1} \]</span></p>
+<p>The price differences array is</p>
+<p><span class="math display">\[ D = [d_0, d_1, ... d_{n-1}, d_n] \]</span></p>
+<p>where <span class="math inline">\(d_0 = 0\)</span> since buy/selling the same day is zero profit.</p>
+<p>To illustrate how a contiguous sum of price differences amounts to profit, let’s say we want to buy at <span class="math inline">\(p_3\)</span> and sell at <span class="math inline">\(p_6\)</span> for a profit of <span class="math inline">\(p_6 - p_3\)</span>. If during that time period you sell and rebuy everyday, this is the same as</p>
+<p><span class="math display">\[ (p_6 - p_5) + (p_5 - p_4) + (p_4 - p_3) \]</span></p>
+<p>which are just the sum of price differences</p>
+<p><span class="math display">\[ d_6 + d_5 + d_4 \]</span></p>
+<p>so a contiguous sum of price differences is the same as buying one day and selling another day.</p>
+<p>The DP solution I devised uses 1-D table <span class="math inline">\(T\)</span> to keep track of contiguous sums. The base case is</p>
+<p><span class="math display">\[ t_0 = 0 \]</span></p>
+<p>and the recurrence relation is</p>
+<p><span class="math display">\[ t_i = d_i + max(0, t_{i-1}) \]</span></p>
+<p>The max is there because we don’t want to carry any negative profits. Put in words, the recurrence says that the max profit today is; today’s price difference plus yesterday’s max profit but only if yesterday’s max profit is greater than zero.</p>
+<p>Finally, we just take the maximum value from table <span class="math inline">\(T\)</span> and the algorithm looks something like below.</p>
+<div id="cell-6" class="cell" data-execution_count="7">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> max_profit(prices: <span class="bu">list</span>[<span class="bu">int</span>]) <span class="op">-&gt;</span> <span class="bu">int</span>:</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    diffs <span class="op">=</span> [<span class="dv">0</span>] <span class="op">+</span> [prices[i] <span class="op">-</span> prices[i <span class="op">-</span> <span class="dv">1</span>] <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">1</span>, <span class="bu">len</span>(prices))]</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    T <span class="op">=</span> [<span class="va">None</span>] <span class="op">*</span> <span class="bu">len</span>(prices)  <span class="co"># pretend fixed size array</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    T[<span class="dv">0</span>] <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">1</span>, <span class="bu">len</span>(prices)):</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        T[i] <span class="op">=</span> diffs[i] <span class="op">+</span> <span class="bu">max</span>(<span class="dv">0</span>, T[i <span class="op">-</span> <span class="dv">1</span>])</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">max</span>(T)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Here’s a small example to verify this works as expected.</p>
+<div id="cell-8" class="cell" data-execution_count="9">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>prices <span class="op">=</span> [<span class="dv">23</span>, <span class="dv">27</span>, <span class="dv">26</span>, <span class="dv">22</span>, <span class="dv">27</span>, <span class="dv">26</span>, <span class="dv">24</span>, <span class="dv">29</span>, <span class="dv">28</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Looking at the diffs helps to see what the max profit should be for this prices array (<code>7</code>).</p>
+<div id="cell-10" class="cell" data-outputid="ca69117b-24a9-4e98-b2fa-33b774948d1f" data-execution_count="10">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>diffs <span class="op">=</span> [<span class="dv">0</span>] <span class="op">+</span> [prices[i] <span class="op">-</span> prices[i <span class="op">-</span> <span class="dv">1</span>] <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">1</span>, <span class="bu">len</span>(prices))]</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(diffs)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[0, 4, -1, -4, 5, -1, -2, 5, -1]</code></pre>
+</div>
+</div>
+<div id="cell-11" class="cell" data-outputid="630a70e6-bff0-46ec-b907-56c7ee97db0c" data-execution_count="11">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>max_p <span class="op">=</span> max_profit(prices)</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(max_p)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>7</code></pre>
+</div>
+</div>
+<p>The code could be optimized by keeping track of the best max at each step but the time complexity would still be <span class="math inline">\(O(n)\)</span>.</p>
 
 
 
-
-<div class="quarto-listing quarto-listing-container-default" id="listing-listing">
-<div class="list quarto-listing-default">
-<div class="quarto-post image-right" data-index="0" data-listing-date-sort="1725087600000" data-listing-file-modified-sort="1725399547459" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="3" data-listing-word-count-sort="574">
-<div class="thumbnail">
-<p><a href="./posts/max-subarray-sum/max_subarray_sum.html" class="no-external"></a></p><a href="./posts/max-subarray-sum/max_subarray_sum.html" class="no-external">
-<div class="listing-item-img-placeholder card-img-top" >&nbsp;</div>
-</a><p><a href="./posts/max-subarray-sum/max_subarray_sum.html" class="no-external"></a></p>
-</div>
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/max-subarray-sum/max_subarray_sum.html" class="no-external">Maximum Subarray Sum</a>
-</h3>
-<div class="listing-subtitle">
-<a href="./posts/max-subarray-sum/max_subarray_sum.html" class="no-external"></a>
-</div>
-<div class="listing-description">
-<a href="./posts/max-subarray-sum/max_subarray_sum.html" class="no-external">It’s been a few months since I posted due to health issues, but I’m breaking the silence with something small today. Most of my posts have been deep dives so this will be a…</a>
-</div>
-</div>
-<div class="metadata">
-<a href="./posts/max-subarray-sum/max_subarray_sum.html" class="no-external">
-<div class="listing-date">
-Aug 31, 2024
-</div>
-<div class="listing-author">
-chris
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="1" data-listing-date-sort="1716793200000" data-listing-file-modified-sort="1725237536855" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="2" data-listing-word-count-sort="223">
-<div class="thumbnail">
-<p><a href="./posts/pytorch-tensorrt/onnx_tensorrt.html" class="no-external"></a></p><a href="./posts/pytorch-tensorrt/onnx_tensorrt.html" class="no-external">
-<p class="card-img-top"><img src="posts\pytorch-tensorrt\onnx_tensorrt_files\figure-html\cell-24-output-1.png"  class="thumbnail-image card-img"/></p>
-</a><p><a href="./posts/pytorch-tensorrt/onnx_tensorrt.html" class="no-external"></a></p>
-</div>
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/pytorch-tensorrt/onnx_tensorrt.html" class="no-external">Speeding up Inference with TensorRT</a>
-</h3>
-<div class="listing-subtitle">
-<a href="./posts/pytorch-tensorrt/onnx_tensorrt.html" class="no-external"></a>
-</div>
-<div class="listing-description">
-<a href="./posts/pytorch-tensorrt/onnx_tensorrt.html" class="no-external">follow up post to pytorch quantization … can we make it faster with GPU and TensorRT</a>
-</div>
-</div>
-<div class="metadata">
-<a href="./posts/pytorch-tensorrt/onnx_tensorrt.html" class="no-external">
-<div class="listing-date">
-May 27, 2024
-</div>
-<div class="listing-author">
-chris
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="2" data-listing-date-sort="1711868400000" data-listing-file-modified-sort="1725237536856" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="8" data-listing-word-count-sort="1467">
-<div class="thumbnail">
-<p><a href="./posts/sample-size/sample_size.html" class="no-external"></a></p><a href="./posts/sample-size/sample_size.html" class="no-external">
-<p class="card-img-top"><img src="posts\sample-size\sample_size_files\figure-html\cell-2-output-1.png"  class="thumbnail-image card-img"/></p>
-</a><p><a href="./posts/sample-size/sample_size.html" class="no-external"></a></p>
-</div>
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/sample-size/sample_size.html" class="no-external">Sample Size for A/B Hypothesis Testing</a>
-</h3>
-<div class="listing-subtitle">
-<a href="./posts/sample-size/sample_size.html" class="no-external"></a>
-</div>
-<div class="listing-description">
-<a href="./posts/sample-size/sample_size.html" class="no-external">The other day I had a conversation at work about model training and evaluation metrics. A colleague of mine suggested that the small improvements we were seeing might not…</a>
-</div>
-</div>
-<div class="metadata">
-<a href="./posts/sample-size/sample_size.html" class="no-external">
-<div class="listing-date">
-Mar 31, 2024
-</div>
-<div class="listing-author">
-chris
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="3" data-listing-date-sort="1706169600000" data-listing-file-modified-sort="1725237536841" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="8" data-listing-word-count-sort="1561">
-<div class="thumbnail">
-<p><a href="./posts/matrix-factorization/matrix_factorization.html" class="no-external"></a></p><a href="./posts/matrix-factorization/matrix_factorization.html" class="no-external">
-<p class="card-img-top"><img src="posts\matrix-factorization\matrix_factorization_files\figure-html\cell-17-output-1.png"  class="thumbnail-image card-img"/></p>
-</a><p><a href="./posts/matrix-factorization/matrix_factorization.html" class="no-external"></a></p>
-</div>
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/matrix-factorization/matrix_factorization.html" class="no-external">Matrix Factorization for Recommender Systems</a>
-</h3>
-<div class="listing-subtitle">
-<a href="./posts/matrix-factorization/matrix_factorization.html" class="no-external"></a>
-</div>
-<div class="listing-description">
-<a href="./posts/matrix-factorization/matrix_factorization.html" class="no-external">It’s pretty difficult to escape recommender systems in 2024. These days, we regularly get recommended things such as content from streaming services like Netflix and…</a>
-</div>
-</div>
-<div class="metadata">
-<a href="./posts/matrix-factorization/matrix_factorization.html" class="no-external">
-<div class="listing-date">
-Jan 25, 2024
-</div>
-<div class="listing-author">
-chris
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="4" data-listing-date-sort="1701676800000" data-listing-file-modified-sort="1725237536854" data-listing-date-modified-sort="1701676800000" data-listing-reading-time-sort="7" data-listing-word-count-sort="1384">
-<div class="thumbnail">
-<p><a href="./posts/pytorch-fxgraph-qat/pytorch_fxgraph_qat.html" class="no-external"></a></p><a href="./posts/pytorch-fxgraph-qat/pytorch_fxgraph_qat.html" class="no-external">
-<p class="card-img-top"><img src="posts\pytorch-fxgraph-qat\pytorch_fxgraph_qat_files\figure-html\cell-16-output-2.png"  class="thumbnail-image card-img"/></p>
-</a><p><a href="./posts/pytorch-fxgraph-qat/pytorch_fxgraph_qat.html" class="no-external"></a></p>
-</div>
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/pytorch-fxgraph-qat/pytorch_fxgraph_qat.html" class="no-external">FX Graph Mode Quantization in PyTorch</a>
-</h3>
-<div class="listing-subtitle">
-<a href="./posts/pytorch-fxgraph-qat/pytorch_fxgraph_qat.html" class="no-external"></a>
-</div>
-<div class="listing-description">
-<a href="./posts/pytorch-fxgraph-qat/pytorch_fxgraph_qat.html" class="no-external">Following up on the last post I did about eager mode quantization in pytorch, in this post I’ll be using pytorch’s FX graph mode quantization to quantize the same R-CNN.…</a>
-</div>
-</div>
-<div class="metadata">
-<a href="./posts/pytorch-fxgraph-qat/pytorch_fxgraph_qat.html" class="no-external">
-<div class="listing-date">
-Dec 4, 2023
-</div>
-<div class="listing-author">
-chris
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="5" data-listing-date-sort="1700035200000" data-listing-file-modified-sort="1725237536849" data-listing-date-modified-sort="1701244800000" data-listing-reading-time-sort="10" data-listing-word-count-sort="1870">
-<div class="thumbnail">
-<p><a href="./posts/pytorch-eager-qat/pytorch_eager_qat.html" class="no-external"></a></p><a href="./posts/pytorch-eager-qat/pytorch_eager_qat.html" class="no-external">
-<p class="card-img-top"><img src="posts\pytorch-eager-qat\pytorch_eager_qat_files\figure-html\cell-23-output-1.png"  class="thumbnail-image card-img"/></p>
-</a><p><a href="./posts/pytorch-eager-qat/pytorch_eager_qat.html" class="no-external"></a></p>
-</div>
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/pytorch-eager-qat/pytorch_eager_qat.html" class="no-external">Eager Mode Quantization in PyTorch: Quantizing the Backbone of an Object Detection Model</a>
-</h3>
-<div class="listing-subtitle">
-<a href="./posts/pytorch-eager-qat/pytorch_eager_qat.html" class="no-external"></a>
-</div>
-<div class="listing-description">
-<a href="./posts/pytorch-eager-qat/pytorch_eager_qat.html" class="no-external">Model quantization is a powerful tool to reduce memory and compute by using lower precision data types. Although I’m familiar with the concept and a few high-level APIs, I…</a>
-</div>
-</div>
-<div class="metadata">
-<a href="./posts/pytorch-eager-qat/pytorch_eager_qat.html" class="no-external">
-<div class="listing-date">
-Nov 15, 2023
-</div>
-<div class="listing-author">
-chris
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="6" data-listing-date-sort="1698822000000" data-listing-file-modified-sort="1725237536855" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="1" data-listing-word-count-sort="1">
-<div class="thumbnail">
-<p><a href="./posts/pytorch-quantization/pytorch_quantization.html" class="no-external"></a></p><a href="./posts/pytorch-quantization/pytorch_quantization.html" class="no-external">
-<div class="listing-item-img-placeholder card-img-top" >&nbsp;</div>
-</a><p><a href="./posts/pytorch-quantization/pytorch_quantization.html" class="no-external"></a></p>
-</div>
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/pytorch-quantization/pytorch_quantization.html" class="no-external">quantizing explorations in pytorch</a>
-</h3>
-<div class="listing-subtitle">
-<a href="./posts/pytorch-quantization/pytorch_quantization.html" class="no-external"></a>
-</div>
-<div class="listing-description">
-<a href="./posts/pytorch-quantization/pytorch_quantization.html" class="no-external">quantization…</a>
-</div>
-</div>
-<div class="metadata">
-<a href="./posts/pytorch-quantization/pytorch_quantization.html" class="no-external">
-<div class="listing-date">
-Nov 1, 2023
-</div>
-<div class="listing-author">
-me
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="7" data-listing-date-sort="1696143600000" data-listing-file-modified-sort="1725237536839" data-listing-date-modified-sort="1701244800000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1135">
-<div class="thumbnail">
-<p><a href="./posts/gaussian-bayes-classifier/gaussian_bayes_classifier.html" class="no-external"></a></p><a href="./posts/gaussian-bayes-classifier/gaussian_bayes_classifier.html" class="no-external">
-<p class="card-img-top"><img src="posts\gaussian-bayes-classifier\gaussian_bayes_classifier_files\figure-html\cell-3-output-1.png"  class="thumbnail-image card-img"/></p>
-</a><p><a href="./posts/gaussian-bayes-classifier/gaussian_bayes_classifier.html" class="no-external"></a></p>
-</div>
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/gaussian-bayes-classifier/gaussian_bayes_classifier.html" class="no-external">Gaussian Bayesian Classifiers</a>
-</h3>
-<div class="listing-subtitle">
-<a href="./posts/gaussian-bayes-classifier/gaussian_bayes_classifier.html" class="no-external"></a>
-</div>
-<div class="listing-description">
-<a href="./posts/gaussian-bayes-classifier/gaussian_bayes_classifier.html" class="no-external">Even though I studied (and revisited, and revisited..) Bayesian statistics several times over the years, I’ve always felt that it wasn’t an intuitive paradigm. Specifically…</a>
-</div>
-</div>
-<div class="metadata">
-<a href="./posts/gaussian-bayes-classifier/gaussian_bayes_classifier.html" class="no-external">
-<div class="listing-date">
-Oct 1, 2023
-</div>
-<div class="listing-author">
-chris
-</div>
-</a>
-</div>
-</div>
-</div>
-<div class="listing-no-matching d-none">
-No matching items
-</div>
-</div></main> <!-- /main -->
+</main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
 window.document.addEventListener("DOMContentLoaded", function (event) {
   const toggleBodyColorMode = (bsSheetEl) => {
