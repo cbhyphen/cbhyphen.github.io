@@ -2,14 +2,12 @@
   {
     "listing": "/index.html",
     "items": [
-      "/posts/t5-encoder-classifier/t5_encoder_classifier.html",
       "/posts/max-subarray-sum/max_subarray_sum.html",
       "/posts/pytorch-tensorrt/onnx_tensorrt.html",
       "/posts/sample-size/sample_size.html",
       "/posts/matrix-factorization/matrix_factorization.html",
       "/posts/pytorch-fxgraph-qat/pytorch_fxgraph_qat.html",
       "/posts/pytorch-eager-qat/pytorch_eager_qat.html",
-      "/posts/pytorch-quantization/pytorch_quantization.html",
       "/posts/gaussian-bayes-classifier/gaussian_bayes_classifier.html"
     ]
   }

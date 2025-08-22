@@ -11,6 +11,7 @@ website:
         href: https://github.com/cbhyphen
       # - icon: twitter
       #   href: https://twitter.com
+  draft-mode: gone
 
 format:
   html:
