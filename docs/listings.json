@@ -2,6 +2,7 @@
   {
     "listing": "/index.html",
     "items": [
+      "/posts/t5-encoder-classifier/t5_encoder_classifier.html",
       "/posts/max-subarray-sum/max_subarray_sum.html",
       "/posts/pytorch-tensorrt/onnx_tensorrt.html",
       "/posts/sample-size/sample_size.html",
