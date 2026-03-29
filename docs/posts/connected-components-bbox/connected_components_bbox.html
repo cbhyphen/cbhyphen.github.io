@@ -9,7 +9,7 @@
 <meta name="author" content="chris">
 <meta name="dcterms.date" content="2026-03-21">
 
-<title>Connected Components for Bounding Boxes – cbhyphen.github.io</title>
+<title>Union-Find and Connected Components for Object Detection – cbhyphen.github.io</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -144,7 +144,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">Connected Components for Bounding Boxes</h1>
+      <h1 class="title">Union-Find and Connected Components for Object Detection</h1>
                       </div>
   </div>
     
@@ -181,153 +181,188 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 
 <p>… I recently came across a small issue at work where I began to use a transformer based model for object detection that did not have non-maximal suppression baked into the inference pipeline. running inference on a model that was not fine-tuned gave back a boatload of overlapping bounding boxes. the problem got me thinking about connected components and the union-find algorithm and I realized that I could frame collapsing boxes within the confines of graph theory…</p>
-<div id="cell-2" class="cell" data-execution_count="10">
+<div id="cell-2" class="cell" data-execution_count="98">
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.patches <span class="im">as</span> patches</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co"># bounding boxes as tuples (x1, y1, x2, y2)</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>boxes <span class="op">=</span> [</span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    (<span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">30</span>, <span class="dv">30</span>),</span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    (<span class="dv">15</span>, <span class="dv">15</span>, <span class="dv">35</span>, <span class="dv">35</span>),</span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    (<span class="dv">20</span>, <span class="dv">20</span>, <span class="dv">40</span>, <span class="dv">40</span>),</span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    (<span class="dv">25</span>, <span class="dv">25</span>, <span class="dv">45</span>, <span class="dv">45</span>),</span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    (<span class="dv">60</span>, <span class="dv">10</span>, <span class="dv">80</span>, <span class="dv">30</span>),</span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    (<span class="dv">67</span>, <span class="dv">17</span>, <span class="dv">87</span>, <span class="dv">37</span>),</span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    (<span class="dv">10</span>, <span class="dv">70</span>, <span class="dv">25</span>, <span class="dv">85</span>),</span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    (<span class="dv">70</span>, <span class="dv">70</span>, <span class="dv">85</span>, <span class="dv">85</span>)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>boxes <span class="op">=</span> [</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    (<span class="dv">25</span>, <span class="dv">25</span>, <span class="dv">45</span>, <span class="dv">45</span>),</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    (<span class="dv">30</span>, <span class="dv">30</span>, <span class="dv">50</span>, <span class="dv">50</span>),</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    (<span class="dv">35</span>, <span class="dv">35</span>, <span class="dv">55</span>, <span class="dv">55</span>),</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    (<span class="dv">40</span>, <span class="dv">40</span>, <span class="dv">60</span>, <span class="dv">60</span>),</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    (<span class="dv">70</span>, <span class="dv">10</span>, <span class="dv">90</span>, <span class="dv">40</span>),</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    (<span class="dv">77</span>, <span class="dv">14</span>, <span class="dv">97</span>, <span class="dv">44</span>),</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    (<span class="dv">10</span>, <span class="dv">70</span>, <span class="dv">20</span>, <span class="dv">85</span>),</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    (<span class="dv">65</span>, <span class="dv">70</span>, <span class="dv">95</span>, <span class="dv">90</span>)</span>
 <span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div id="cell-3" class="cell" data-execution_count="11">
+<div id="cell-3" class="cell" data-execution_count="99">
 <div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> plot_boxes(bboxes):</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    fig, ax <span class="op">=</span> plt.subplots(figsize<span class="op">=</span>(<span class="dv">8</span>, <span class="dv">8</span>))</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    ax.set_xlim(<span class="dv">0</span>, <span class="dv">100</span>)</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    ax.set_ylim(<span class="dv">0</span>, <span class="dv">100</span>)</span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    ax.set_aspect(<span class="st">'equal'</span>)</span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    colors <span class="op">=</span> [<span class="st">'red'</span>, <span class="st">'blue'</span>, <span class="st">'green'</span>, <span class="st">'orange'</span>, <span class="st">'purple'</span>, <span class="st">'brown'</span>, <span class="st">'cyan'</span>, <span class="st">'magenta'</span>]</span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i, box <span class="kw">in</span> <span class="bu">enumerate</span>(bboxes):</span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        x1, y1, x2, y2 <span class="op">=</span> box</span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        width, height <span class="op">=</span> x2 <span class="op">-</span> x1, y2 <span class="op">-</span> y1</span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        rect <span class="op">=</span> patches.Rectangle(</span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>            (x1, y1), width, height,</span>
-<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>            linewidth<span class="op">=</span><span class="dv">2</span>, edgecolor<span class="op">=</span>colors[i <span class="op">%</span> <span class="bu">len</span>(colors)], facecolor<span class="op">=</span><span class="st">'none'</span>, alpha<span class="op">=</span><span class="fl">0.7</span></span>
-<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>            )</span>
-<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>        ax.add_patch(rect)</span>
-<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>        ax.text(x1, y2 <span class="op">+</span> <span class="dv">1</span>, <span class="ss">f'Box </span><span class="sc">{</span>i<span class="sc">}</span><span class="ss">'</span>, color<span class="op">=</span>colors[i <span class="op">%</span> <span class="bu">len</span>(colors)], fontsize<span class="op">=</span><span class="dv">9</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
-<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    plt.title(<span class="st">'Diagonal Boxes (Tuples)'</span>)</span>
-<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    plt.grid(<span class="va">True</span>, linestyle<span class="op">=</span><span class="st">'--'</span>, alpha<span class="op">=</span><span class="fl">0.5</span>)</span>
-<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    fig, ax <span class="op">=</span> plt.subplots(figsize<span class="op">=</span>(<span class="dv">8</span>, <span class="dv">8</span>))</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    ax.set_xlim(<span class="dv">0</span>, <span class="dv">100</span>)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    ax.set_ylim(<span class="dv">0</span>, <span class="dv">100</span>)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    ax.set_aspect(<span class="st">'equal'</span>)</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i, box <span class="kw">in</span> <span class="bu">enumerate</span>(bboxes):</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        x1, y1, x2, y2 <span class="op">=</span> box</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        width, height <span class="op">=</span> x2 <span class="op">-</span> x1, y2 <span class="op">-</span> y1</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        rect <span class="op">=</span> patches.Rectangle(</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>            (x1, y1),</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>            width,</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>            height,</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>            linewidth<span class="op">=</span><span class="dv">2</span>,</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>            edgecolor<span class="op">=</span><span class="st">'black'</span>,</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>            facecolor<span class="op">=</span><span class="st">'none'</span>,</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>            alpha<span class="op">=</span><span class="fl">0.5</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>            )</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>        ax.add_patch(rect)</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>        ax.text(x1,</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>                y2 <span class="op">+</span> <span class="dv">1</span>,</span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>                <span class="ss">f'</span><span class="sc">{</span>i<span class="sc">}</span><span class="ss">'</span>,</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>                fontsize<span class="op">=</span><span class="dv">9</span>,</span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>                fontweight<span class="op">=</span><span class="st">'bold'</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>                )</span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>    plt.title(<span class="st">'bounding boxes'</span>)</span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>    plt.grid(<span class="va">True</span>, linestyle<span class="op">=</span><span class="st">'--'</span>, alpha<span class="op">=</span><span class="fl">0.5</span>)</span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>    plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div id="cell-4" class="cell" data-outputid="5c31fddb-4b08-4e9a-b3cb-16531faded71" data-execution_count="12">
+<div id="cell-4" class="cell" data-outputid="8adc1d7a-9965-4891-cecd-94c030901974" data-execution_count="100">
 <div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>plot_boxes(boxes)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="union_find_connected_components_files/figure-html/cell-4-output-1.png" class="img-fluid figure-img"></p>
+<p><img src="connected_components_bbox_files/figure-html/cell-4-output-1.png" class="img-fluid figure-img"></p>
 </figure>
 </div>
 </div>
 </div>
-<div id="cell-5" class="cell" data-execution_count="14">
-<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> get_iou(box_a, box_b):</span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Determine the coordinates of the intersection rectangle</span></span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    x_a <span class="op">=</span> <span class="bu">max</span>(box_a[<span class="dv">0</span>], box_b[<span class="dv">0</span>])</span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    y_a <span class="op">=</span> <span class="bu">max</span>(box_a[<span class="dv">1</span>], box_b[<span class="dv">1</span>])</span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    x_b <span class="op">=</span> <span class="bu">min</span>(box_a[<span class="dv">2</span>], box_b[<span class="dv">2</span>])</span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    y_b <span class="op">=</span> <span class="bu">min</span>(box_a[<span class="dv">3</span>], box_b[<span class="dv">3</span>])</span>
+<p>… analagous graph …</p>
+<div id="cell-6" class="cell" data-outputid="2032a7e0-c6c0-4e30-9ccb-ef820f2a41d7" data-execution_count="101">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> networkx <span class="im">as</span> nx</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>G <span class="op">=</span> nx.Graph()</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>G.add_nodes_from(<span class="bu">range</span>(<span class="dv">8</span>))</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>G.add_edges_from([(<span class="dv">0</span>, <span class="dv">1</span>), (<span class="dv">1</span>, <span class="dv">2</span>), (<span class="dv">2</span>, <span class="dv">3</span>)])</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>G.add_edges_from([(<span class="dv">4</span>, <span class="dv">5</span>)])</span>
 <span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Compute the area of intersection</span></span>
-<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    inter_area <span class="op">=</span> <span class="bu">max</span>(<span class="dv">0</span>, x_b <span class="op">-</span> x_a) <span class="op">*</span> <span class="bu">max</span>(<span class="dv">0</span>, y_b <span class="op">-</span> y_a)</span>
-<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Compute the area of both the prediction and ground-truth boxes</span></span>
-<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    box_a_area <span class="op">=</span> (box_a[<span class="dv">2</span>] <span class="op">-</span> box_a[<span class="dv">0</span>]) <span class="op">*</span> (box_a[<span class="dv">3</span>] <span class="op">-</span> box_a[<span class="dv">1</span>])</span>
-<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    box_b_area <span class="op">=</span> (box_b[<span class="dv">2</span>] <span class="op">-</span> box_b[<span class="dv">0</span>]) <span class="op">*</span> (box_b[<span class="dv">3</span>] <span class="op">-</span> box_b[<span class="dv">1</span>])</span>
-<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Compute the intersection over union</span></span>
-<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    iou <span class="op">=</span> inter_area <span class="op">/</span> <span class="bu">float</span>(box_a_area <span class="op">+</span> box_b_area <span class="op">-</span> inter_area)</span>
-<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Return the IoU value</span></span>
-<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> iou</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>components <span class="op">=</span> <span class="bu">list</span>(nx.connected_components(G))</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>color_palette <span class="op">=</span> [<span class="st">"red"</span>, <span class="st">"orange"</span>, <span class="st">"green"</span>, <span class="st">"blue"</span>]</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>node_colors <span class="op">=</span> [<span class="va">None</span>] <span class="op">*</span> <span class="dv">8</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, component <span class="kw">in</span> <span class="bu">enumerate</span>(components):</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> node <span class="kw">in</span> component:</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>        node_colors[node] <span class="op">=</span> color_palette[i <span class="op">%</span> <span class="bu">len</span>(color_palette)]</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>plt.figure(figsize<span class="op">=</span>(<span class="dv">8</span>, <span class="dv">8</span>))</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>pos <span class="op">=</span> nx.spring_layout(G, k<span class="op">=</span><span class="dv">1</span>, iterations<span class="op">=</span><span class="dv">60</span>, seed<span class="op">=</span><span class="dv">42</span>)  <span class="co"># 'k' ~ node distance</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>nx.draw_networkx_nodes(G, pos, node_color<span class="op">=</span>node_colors, node_size<span class="op">=</span><span class="dv">600</span>, alpha<span class="op">=</span><span class="fl">0.95</span>)</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>nx.draw_networkx_edges(G, pos, width<span class="op">=</span><span class="dv">2</span>, alpha<span class="op">=</span><span class="fl">0.5</span>, edge_color<span class="op">=</span><span class="st">"black"</span>)</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>nx.draw_networkx_labels(G, pos, font_size<span class="op">=</span><span class="dv">12</span>, font_color<span class="op">=</span><span class="st">"white"</span>, font_weight<span class="op">=</span><span class="st">"bold"</span>)</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="st">"connected components"</span>)</span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="connected_components_bbox_files/figure-html/cell-5-output-1.png" class="img-fluid figure-img"></p>
+</figure>
 </div>
-<div id="cell-6" class="cell" data-outputid="cc70d7e8-4b5d-43fe-9cff-9125d497105d" data-execution_count="16">
-<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> itertools <span class="im">import</span> combinations</span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="co"># IOU threshold for merging two boxes</span></span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>threshold <span class="op">=</span> <span class="fl">0.25</span></span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="co"># adjacency list graph representation</span></span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>graph <span class="op">=</span> {v: <span class="bu">set</span>() <span class="cf">for</span> v <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(boxes))}</span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="co"># create edges.  edge is if any combination overlaps</span></span>
-<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> u, v <span class="kw">in</span> combinations(<span class="bu">range</span>(<span class="bu">len</span>(boxes)), <span class="dv">2</span>):</span>
-<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> get_iou(boxes[u], boxes[v]) <span class="op">&gt;</span> threshold:</span>
-<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>        <span class="co"># add to adjacency list</span></span>
-<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>        graph[u].add(v)</span>
-<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>        graph[v].add(u)</span>
-<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Adjacency List Graph: </span><span class="sc">{</span>graph<span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a><span class="co"># parents for union-find</span></span>
-<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>parents <span class="op">=</span> [i <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(boxes))]</span>
-<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a><span class="co"># find goes until a root is found</span></span>
-<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> find(v):</span>
-<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> v <span class="op">!=</span> parents[v]:</span>
-<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>      v <span class="op">=</span> parents[v]</span>
-<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> v</span>
-<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a><span class="co"># union assigns one vertex's parent as the other's parent</span></span>
-<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> union(u, v):</span>
-<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>    root_u <span class="op">=</span> find(u)</span>
-<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a>    root_v <span class="op">=</span> find(v)</span>
-<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> root_u <span class="op">!=</span> root_v:</span>
-<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a>        parents[root_v] <span class="op">=</span> root_u</span>
-<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-34"><a href="#cb5-34" aria-hidden="true" tabindex="-1"></a><span class="co"># for every edge in graph perform union to connect components</span></span>
-<span id="cb5-35"><a href="#cb5-35" aria-hidden="true" tabindex="-1"></a><span class="co"># </span><span class="al">NOTE</span></span>
-<span id="cb5-36"><a href="#cb5-36" aria-hidden="true" tabindex="-1"></a><span class="co"># ideally this should be done in edge creation step but more explicit here</span></span>
-<span id="cb5-37"><a href="#cb5-37" aria-hidden="true" tabindex="-1"></a>seen <span class="op">=</span> <span class="bu">set</span>()</span>
-<span id="cb5-38"><a href="#cb5-38" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> u <span class="kw">in</span> graph:</span>
-<span id="cb5-39"><a href="#cb5-39" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> v <span class="kw">in</span> graph[u]:</span>
-<span id="cb5-40"><a href="#cb5-40" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (u, v) <span class="kw">not</span> <span class="kw">in</span> seen <span class="kw">and</span> (v, u) <span class="kw">not</span> <span class="kw">in</span> seen:</span>
-<span id="cb5-41"><a href="#cb5-41" aria-hidden="true" tabindex="-1"></a>            union(u, v)</span>
-<span id="cb5-42"><a href="#cb5-42" aria-hidden="true" tabindex="-1"></a>            seen.add((u, v))</span>
-<span id="cb5-43"><a href="#cb5-43" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-44"><a href="#cb5-44" aria-hidden="true" tabindex="-1"></a><span class="co"># for each connected component keep track of merged box as</span></span>
-<span id="cb5-45"><a href="#cb5-45" aria-hidden="true" tabindex="-1"></a><span class="co"># [min x1, min y1, max x2, max y2]</span></span>
-<span id="cb5-46"><a href="#cb5-46" aria-hidden="true" tabindex="-1"></a>components <span class="op">=</span> {}</span>
-<span id="cb5-47"><a href="#cb5-47" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(boxes)):</span>
-<span id="cb5-48"><a href="#cb5-48" aria-hidden="true" tabindex="-1"></a>    root <span class="op">=</span> find(i)</span>
-<span id="cb5-49"><a href="#cb5-49" aria-hidden="true" tabindex="-1"></a>    box <span class="op">=</span> boxes[i]</span>
-<span id="cb5-50"><a href="#cb5-50" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> root <span class="kw">not</span> <span class="kw">in</span> components:</span>
-<span id="cb5-51"><a href="#cb5-51" aria-hidden="true" tabindex="-1"></a>        <span class="co"># init as a list to allow mutation</span></span>
-<span id="cb5-52"><a href="#cb5-52" aria-hidden="true" tabindex="-1"></a>        components[root] <span class="op">=</span> <span class="bu">list</span>(box)</span>
-<span id="cb5-53"><a href="#cb5-53" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
-<span id="cb5-54"><a href="#cb5-54" aria-hidden="true" tabindex="-1"></a>        components[root][<span class="dv">0</span>] <span class="op">=</span> <span class="bu">min</span>(components[root][<span class="dv">0</span>], box[<span class="dv">0</span>])  <span class="co"># x1</span></span>
-<span id="cb5-55"><a href="#cb5-55" aria-hidden="true" tabindex="-1"></a>        components[root][<span class="dv">1</span>] <span class="op">=</span> <span class="bu">min</span>(components[root][<span class="dv">1</span>], box[<span class="dv">1</span>])  <span class="co"># y1</span></span>
-<span id="cb5-56"><a href="#cb5-56" aria-hidden="true" tabindex="-1"></a>        components[root][<span class="dv">2</span>] <span class="op">=</span> <span class="bu">max</span>(components[root][<span class="dv">2</span>], box[<span class="dv">2</span>])  <span class="co"># x2</span></span>
-<span id="cb5-57"><a href="#cb5-57" aria-hidden="true" tabindex="-1"></a>        components[root][<span class="dv">3</span>] <span class="op">=</span> <span class="bu">max</span>(components[root][<span class="dv">3</span>], box[<span class="dv">3</span>])  <span class="co"># y2</span></span>
-<span id="cb5-58"><a href="#cb5-58" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-59"><a href="#cb5-59" aria-hidden="true" tabindex="-1"></a>collapsed_boxes <span class="op">=</span> [<span class="bu">tuple</span>(b) <span class="cf">for</span> b <span class="kw">in</span> components.values()]</span>
-<span id="cb5-60"><a href="#cb5-60" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-61"><a href="#cb5-61" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Reduced </span><span class="sc">{</span><span class="bu">len</span>(boxes)<span class="sc">}</span><span class="ss"> boxes to </span><span class="sc">{</span><span class="bu">len</span>(collapsed_boxes)<span class="sc">}</span><span class="ss"> clusters."</span>)</span>
-<span id="cb5-62"><a href="#cb5-62" aria-hidden="true" tabindex="-1"></a>plot_boxes(collapsed_boxes)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</div>
+<div id="cell-7" class="cell" data-execution_count="102">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> get_iou(box_a, box_b):</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="co"># intersect box</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    x_a <span class="op">=</span> <span class="bu">max</span>(box_a[<span class="dv">0</span>], box_b[<span class="dv">0</span>])</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    y_a <span class="op">=</span> <span class="bu">max</span>(box_a[<span class="dv">1</span>], box_b[<span class="dv">1</span>])</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    x_b <span class="op">=</span> <span class="bu">min</span>(box_a[<span class="dv">2</span>], box_b[<span class="dv">2</span>])</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    y_b <span class="op">=</span> <span class="bu">min</span>(box_a[<span class="dv">3</span>], box_b[<span class="dv">3</span>])</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    <span class="co"># areas</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    intersect_area <span class="op">=</span> <span class="bu">max</span>(<span class="dv">0</span>, x_b <span class="op">-</span> x_a) <span class="op">*</span> <span class="bu">max</span>(<span class="dv">0</span>, y_b <span class="op">-</span> y_a)</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    box_a_area <span class="op">=</span> (box_a[<span class="dv">2</span>] <span class="op">-</span> box_a[<span class="dv">0</span>]) <span class="op">*</span> (box_a[<span class="dv">3</span>] <span class="op">-</span> box_a[<span class="dv">1</span>])</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    box_b_area <span class="op">=</span> (box_b[<span class="dv">2</span>] <span class="op">-</span> box_b[<span class="dv">0</span>]) <span class="op">*</span> (box_b[<span class="dv">3</span>] <span class="op">-</span> box_b[<span class="dv">1</span>])</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> intersect_area <span class="op">/</span> <span class="bu">float</span>(box_a_area <span class="op">+</span> box_b_area <span class="op">-</span> intersect_area)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div id="cell-8" class="cell" data-outputid="b1df145a-ca71-41f5-fc17-cef610eeb3f5" data-execution_count="103">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> itertools <span class="im">import</span> combinations</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="co"># IOU threshold for merging two boxes</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>threshold <span class="op">=</span> <span class="fl">0.25</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="co"># adjacency list graph representation</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>graph <span class="op">=</span> {v: <span class="bu">set</span>() <span class="cf">for</span> v <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(boxes))}</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="co"># create edges.  edge is if any combination overlaps</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> u, v <span class="kw">in</span> combinations(<span class="bu">range</span>(<span class="bu">len</span>(boxes)), <span class="dv">2</span>):</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> get_iou(boxes[u], boxes[v]) <span class="op">&gt;</span> threshold:</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>        <span class="co"># add to adjacency list</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>        graph[u].add(v)</span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>        graph[v].add(u)</span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a><span class="co"># print(f"Adjacency List Graph: {graph}")</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a><span class="co"># parents for union-find</span></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>parents <span class="op">=</span> [i <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(boxes))]</span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a><span class="co"># find goes until a root is found</span></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> find(v):</span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> v <span class="op">!=</span> parents[v]:</span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a>      v <span class="op">=</span> parents[v]</span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> v</span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a><span class="co"># union assigns one vertex's parent as the other's parent</span></span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> union(u, v):</span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a>    root_u <span class="op">=</span> find(u)</span>
+<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a>    root_v <span class="op">=</span> find(v)</span>
+<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> root_u <span class="op">!=</span> root_v:</span>
+<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a>        parents[root_v] <span class="op">=</span> root_u</span>
+<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-34"><a href="#cb6-34" aria-hidden="true" tabindex="-1"></a><span class="co"># for every edge in graph perform union to connect components</span></span>
+<span id="cb6-35"><a href="#cb6-35" aria-hidden="true" tabindex="-1"></a><span class="co"># </span><span class="al">NOTE</span><span class="co"> ideally this should be done in edge creation step but more explicit here</span></span>
+<span id="cb6-36"><a href="#cb6-36" aria-hidden="true" tabindex="-1"></a>seen <span class="op">=</span> <span class="bu">set</span>()</span>
+<span id="cb6-37"><a href="#cb6-37" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> u <span class="kw">in</span> graph:</span>
+<span id="cb6-38"><a href="#cb6-38" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> v <span class="kw">in</span> graph[u]:</span>
+<span id="cb6-39"><a href="#cb6-39" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (u, v) <span class="kw">not</span> <span class="kw">in</span> seen <span class="kw">and</span> (v, u) <span class="kw">not</span> <span class="kw">in</span> seen:</span>
+<span id="cb6-40"><a href="#cb6-40" aria-hidden="true" tabindex="-1"></a>            union(u, v)</span>
+<span id="cb6-41"><a href="#cb6-41" aria-hidden="true" tabindex="-1"></a>            seen.add((u, v))</span>
+<span id="cb6-42"><a href="#cb6-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-43"><a href="#cb6-43" aria-hidden="true" tabindex="-1"></a><span class="co"># for each connected component keep track of merged box as</span></span>
+<span id="cb6-44"><a href="#cb6-44" aria-hidden="true" tabindex="-1"></a><span class="co"># [min x1, min y1, max x2, max y2]</span></span>
+<span id="cb6-45"><a href="#cb6-45" aria-hidden="true" tabindex="-1"></a>components <span class="op">=</span> {}</span>
+<span id="cb6-46"><a href="#cb6-46" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(boxes)):</span>
+<span id="cb6-47"><a href="#cb6-47" aria-hidden="true" tabindex="-1"></a>    root <span class="op">=</span> find(i)</span>
+<span id="cb6-48"><a href="#cb6-48" aria-hidden="true" tabindex="-1"></a>    box <span class="op">=</span> boxes[i]</span>
+<span id="cb6-49"><a href="#cb6-49" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> root <span class="kw">not</span> <span class="kw">in</span> components:</span>
+<span id="cb6-50"><a href="#cb6-50" aria-hidden="true" tabindex="-1"></a>        <span class="co"># init as a list to allow mutation</span></span>
+<span id="cb6-51"><a href="#cb6-51" aria-hidden="true" tabindex="-1"></a>        components[root] <span class="op">=</span> <span class="bu">list</span>(box)</span>
+<span id="cb6-52"><a href="#cb6-52" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb6-53"><a href="#cb6-53" aria-hidden="true" tabindex="-1"></a>        components[root][<span class="dv">0</span>] <span class="op">=</span> <span class="bu">min</span>(components[root][<span class="dv">0</span>], box[<span class="dv">0</span>])  <span class="co"># x1</span></span>
+<span id="cb6-54"><a href="#cb6-54" aria-hidden="true" tabindex="-1"></a>        components[root][<span class="dv">1</span>] <span class="op">=</span> <span class="bu">min</span>(components[root][<span class="dv">1</span>], box[<span class="dv">1</span>])  <span class="co"># y1</span></span>
+<span id="cb6-55"><a href="#cb6-55" aria-hidden="true" tabindex="-1"></a>        components[root][<span class="dv">2</span>] <span class="op">=</span> <span class="bu">max</span>(components[root][<span class="dv">2</span>], box[<span class="dv">2</span>])  <span class="co"># x2</span></span>
+<span id="cb6-56"><a href="#cb6-56" aria-hidden="true" tabindex="-1"></a>        components[root][<span class="dv">3</span>] <span class="op">=</span> <span class="bu">max</span>(components[root][<span class="dv">3</span>], box[<span class="dv">3</span>])  <span class="co"># y2</span></span>
+<span id="cb6-57"><a href="#cb6-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-58"><a href="#cb6-58" aria-hidden="true" tabindex="-1"></a>collapsed_boxes <span class="op">=</span> [<span class="bu">tuple</span>(b) <span class="cf">for</span> b <span class="kw">in</span> components.values()]</span>
+<span id="cb6-59"><a href="#cb6-59" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-60"><a href="#cb6-60" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"reduced </span><span class="sc">{</span><span class="bu">len</span>(boxes)<span class="sc">}</span><span class="ss"> boxes to </span><span class="sc">{</span><span class="bu">len</span>(collapsed_boxes)<span class="sc">}</span><span class="ss">."</span>)</span>
+<span id="cb6-61"><a href="#cb6-61" aria-hidden="true" tabindex="-1"></a>plot_boxes(collapsed_boxes)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>Adjacency List Graph: {0: {1}, 1: {0, 2}, 2: {1, 3}, 3: {2}, 4: {5}, 5: {4}, 6: set(), 7: set()}
-Reduced 8 boxes to 4 clusters.</code></pre>
+<pre><code>reduced 8 boxes to 4.</code></pre>
 </div>
 <div class="cell-output cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="union_find_connected_components_files/figure-html/cell-6-output-2.png" class="img-fluid figure-img"></p>
+<p><img src="connected_components_bbox_files/figure-html/cell-7-output-2.png" class="img-fluid figure-img"></p>
 </figure>
 </div>
 </div>
 </div>
+<p>… can optimize with path compression - find procedure links for faster lookups, call to union during graph creation step …</p>
 
 
 

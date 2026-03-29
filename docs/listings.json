@@ -2,7 +2,7 @@
   {
     "listing": "/index.html",
     "items": [
-      "/posts/connected-components-bbox/union_find_connected_components.html",
+      "/posts/connected-components-bbox/connected_components_bbox.html",
       "/posts/t5-encoder-classifier/t5_encoder_classifier.html",
       "/posts/max-subarray-sum/max_subarray_sum.html",
       "/posts/pytorch-tensorrt/onnx_tensorrt.html",
