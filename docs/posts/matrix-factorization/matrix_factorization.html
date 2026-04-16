@@ -1072,7 +1072,7 @@ epoch 20  |  validation RMSE: 1.0919</code></pre>
 </div>
 </div>
 </div>
-<p>The best validation RMSE we get after 20 epochs is <code>1.092</code>. While the baseline RMSE that Netflix had achieved before the competition was <code>0.95</code>, this isn’t an apples to apples comparison. The MovieLens dataset is different with ratings that go down to 0.5 and in increments of <code>0.5</code> whereas the Netflix dataset had a range of <code>[1, 5]</code> and in whole number increments.</p>
+<p>The best validation RMSE we get after 20 epochs is <code>1.092</code>. While the baseline RMSE that Netflix had achieved before the competition was <code>0.95</code>, this isn’t an apples to apples comparison. The MovieLens dataset is different with ratings that go down to <code>0.5</code> and in increments of <code>0.5</code> whereas the Netflix dataset had a range of <code>[1, 5]</code> and in whole number increments.</p>
 <p>This was mostly an exercise in understanding PMF with the challenge of deriving and implementing the algorithm starting from the objective function shown in the research paper. But, if we wanted to squeeze out more performance there are several things we could do:</p>
 <ul>
 <li>use adaptive covariance (biggest gains)</li>
